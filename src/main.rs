@@ -15,6 +15,8 @@ async fn main() {
         ball: Ball {
             x: screen_width() / 2.0,
             y: screen_height() / 2.0,
+            prev_x: screen_width() / 2.0,
+            prev_y: screen_height() / 2.0,
             radius: 10.0,
             velocity_x: 1.0,
             velocity_y: 1.0,
@@ -203,10 +205,15 @@ fn apply_block_collision(game: &mut Game) {
         for (i, block) in row.iter_mut().enumerate() {
             if *block && !collision_occurred {
                 let block_rect: Block = calculate_block_rect(i, j);
-                // check for collision with the ball
+
                 if block_collisides(&game.ball, &block_rect) {
+                    let directions = detect_direction(&game.ball, &block_rect);
                     *block = false;
-                    game.ball.velocity_y = -game.ball.velocity_y;
+                    if directions.0 || directions.1 {
+                        game.ball.velocity_x = -game.ball.velocity_x;
+                    } else {
+                        game.ball.velocity_y = -game.ball.velocity_y;
+                    }
                     collision_occurred = true;
                     break;
                 }
@@ -217,6 +224,15 @@ fn apply_block_collision(game: &mut Game) {
             break;
         }
     }
+}
+
+fn detect_direction(ball: &Ball, block: &Block) -> (bool, bool, bool, bool) {
+    (
+        ball.prev_x + ball.radius <= block.x,
+        ball.prev_x - ball.radius >= block.x + block.width,
+        ball.prev_y + ball.radius <= block.y,
+        ball.prev_y - ball.radius >= block.y + block.height,
+    )
 }
 
 fn calculate_block_rect(i: usize, j: usize) -> Block {
@@ -304,6 +320,8 @@ struct Paddle {
 struct Ball {
     x: f32,
     y: f32,
+    prev_x: f32,
+    prev_y: f32,
     radius: f32,
     velocity_x: f32,
     velocity_y: f32,
@@ -321,6 +339,7 @@ struct Game {
 impl Game {
     fn update(&mut self) {
         show_velocity(&self.ball);
+        update_ball_previous_position(&mut self.ball);
         apply_movement(&mut self.player);
         apply_ball_movement(&mut self.ball, &self.player);
         apply_block_collision(self);
@@ -331,6 +350,11 @@ impl Game {
     fn draw(&self) {
         draw_game(self);
     }
+}
+
+fn update_ball_previous_position(ball: &mut Ball) {
+    ball.prev_x = ball.x;
+    ball.prev_y = ball.y;
 }
 
 #[derive(Copy, Clone)]
