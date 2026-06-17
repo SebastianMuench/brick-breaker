@@ -1,12 +1,12 @@
 use crate::{
     BLOCKS_H, BLOCKS_W, SPEED_MULTIPLYER,
+    draw::{draw_game, draw_game_over, draw_game_won, draw_pause, draw_start},
     entities::{Ball, Paddle},
     state::GameState::{self, StartScreen},
     system::{
-        draw_game, draw_game_over, draw_game_won, draw_pause, draw_start, game_lost, game_won,
-        handle_block_collision, handle_paddle_collision, handle_site_collision,
-        handle_top_collision, increase_speed, toggle_game, update_ball_position,
-        update_ball_previous_position,
+        game_lost, game_won, handle_block_collision, handle_paddle_collision,
+        handle_site_collision, handle_top_collision, increase_speed, toggle_game,
+        update_ball_position, update_ball_previous_position,
     },
 };
 use macroquad::{

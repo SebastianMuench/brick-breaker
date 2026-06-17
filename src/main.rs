@@ -2,6 +2,7 @@ use macroquad::prelude::*;
 
 use crate::game::Game;
 
+mod draw;
 mod entities;
 mod game;
 mod state;
