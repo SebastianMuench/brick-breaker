@@ -4,7 +4,7 @@ const BLOCKS_W: usize = 10;
 const BLOCKS_H: usize = 10;
 const SPEED_MULTIPLYER: f32 = 1.1;
 
-#[macroquad::main("Paddle Game")]
+#[macroquad::main("Seppong")]
 async fn main() {
     let mut game = Game {
         player: Paddle {
@@ -197,23 +197,51 @@ fn game_lost(ball: &Ball) -> bool {
 }
 
 fn apply_block_collision(game: &mut Game) {
-    for (j, row) in game.blocks.iter_mut().enumerate().take(BLOCKS_H) {
-        for (i, block) in row.iter_mut().enumerate().take(BLOCKS_W) {
-            if *block {
-                let block_width = screen_width() / BLOCKS_W as f32;
-                let block_height = screen_height() / (2.0 * BLOCKS_H as f32);
+    let mut collision_occurred = false;
+
+    for (j, row) in game.blocks.iter_mut().enumerate() {
+        for (i, block) in row.iter_mut().enumerate() {
+            if *block && !collision_occurred {
+                let block_rect: Block = calculate_block_rect(i, j);
                 // check for collision with the ball
-                if game.ball.x + game.ball.radius >= i as f32 * block_width
-                    && game.ball.x - game.ball.radius <= (i + 1) as f32 * block_width
-                    && game.ball.y + game.ball.radius >= j as f32 * block_height
-                    && game.ball.y - game.ball.radius <= (j + 1) as f32 * block_height
-                {
+                if block_collisides(&game.ball, &block_rect) {
                     *block = false;
                     game.ball.velocity_y = -game.ball.velocity_y;
+                    collision_occurred = true;
+                    break;
                 }
             }
         }
+
+        if collision_occurred {
+            break;
+        }
     }
+}
+
+fn calculate_block_rect(i: usize, j: usize) -> Block {
+    let block_width = screen_width() / BLOCKS_W as f32;
+    let block_height = screen_height() / (2.0 * BLOCKS_H as f32);
+    Block {
+        x: i as f32 * block_width,
+        y: j as f32 * block_height,
+        width: block_width,
+        height: block_height,
+    }
+}
+
+struct Block {
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
+}
+
+fn block_collisides(ball: &Ball, block: &Block) -> bool {
+    ball.x + ball.radius >= block.x
+        && ball.x - ball.radius <= block.x + block.width
+        && ball.y + ball.radius >= block.y
+        && ball.y - ball.radius <= block.y + block.height
 }
 
 fn draw_game(game: &Game) {
