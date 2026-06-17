@@ -46,14 +46,6 @@ async fn main() {
             GameState::Playing => {
                 game.update();
                 game.draw();
-
-                if game_lost(&game.ball) {
-                    game.state = GameState::GameOver;
-                }
-
-                if game_won(&game) {
-                    game.state = GameState::GameWon;
-                }
             }
             GameState::Pause => {
                 draw_pause_screen();
@@ -123,16 +115,6 @@ fn draw_pause_screen() {
     );
 }
 
-fn cheat(game: &mut Game) {
-    if is_key_down(KeyCode::C) {
-        for row in game.blocks.iter_mut() {
-            for block in row.iter_mut() {
-                *block = false;
-            }
-        }
-    }
-}
-
 fn increase_speed(game: &mut Game, speed_multiplier: f32) {
     // every 10 seconds, increase the speed of the ball by 10% // this currently isn't working but i'm not sure why
     if get_time() > game.next_speed_increase_time {
@@ -150,24 +132,6 @@ fn show_velocity(ball: &Ball) {
         20.0,
         WHITE,
     );
-}
-
-fn apply_movement(paddle: &mut Paddle) {
-    if is_key_down(KeyCode::Left) {
-        if paddle.x - 5.0 < 0.0 {
-            paddle.x = 0.0;
-        } else {
-            paddle.x -= 5.0;
-        }
-    }
-
-    if is_key_down(KeyCode::Right) {
-        if paddle.x + paddle.width + 5.0 > screen_width() {
-            paddle.x = screen_width() - paddle.width;
-        } else {
-            paddle.x += 5.0;
-        }
-    }
 }
 
 fn draw_start_screen() {
@@ -198,7 +162,7 @@ fn game_lost(ball: &Ball) -> bool {
     ball.y - ball.radius > screen_height()
 }
 
-fn apply_block_collision(game: &mut Game) {
+fn handle_block_collision(game: &mut Game) {
     let mut collision_occurred = false;
 
     for (j, row) in game.blocks.iter_mut().enumerate() {
@@ -289,24 +253,30 @@ fn draw_game(game: &Game) {
     }
 }
 
-fn apply_ball_movement(ball: &mut Ball, player: &Paddle) {
-    // we need to check if we hit the sites and then invert the velocity
-    if ball.x - ball.radius <= 0.0 || ball.x + ball.radius >= screen_width() {
-        ball.velocity_x = -ball.velocity_x;
+fn handle_site_collision(game: &mut Game) {
+    if game.ball.x - game.ball.radius <= 0.0 || game.ball.x + game.ball.radius >= screen_width() {
+        game.ball.velocity_x = -game.ball.velocity_x;
     }
+}
 
-    // we also need to invert the y movement if we hit the top of the screen
-    if ball.y - ball.radius <= 0.0 {
-        ball.velocity_y = -ball.velocity_y;
+fn handel_top_collision(game: &mut Game) {
+    if game.ball.y - game.ball.radius <= 0.0 {
+        game.ball.velocity_y = -game.ball.velocity_y;
     }
+}
 
-    // on collision with the paddle, we also need to invert the y movement
-    if ball.y + ball.radius >= player.y && ball.x >= player.x && ball.x <= player.x + player.width {
-        ball.velocity_y = -ball.velocity_y;
+fn handle_paddle_collision(game: &mut Game) {
+    if game.ball.y + game.ball.radius >= game.player.y
+        && game.ball.x >= game.player.x
+        && game.ball.x <= game.player.x + game.player.width
+    {
+        game.ball.velocity_y = -game.ball.velocity_y;
     }
+}
 
-    ball.x += ball.velocity_x;
-    ball.y += ball.velocity_y;
+fn update_ball_position(game: &mut Game) {
+    game.ball.x += game.ball.velocity_x;
+    game.ball.y += game.ball.velocity_y;
 }
 
 #[derive(Copy, Clone)]
@@ -338,13 +308,57 @@ struct Game {
 
 impl Game {
     fn update(&mut self) {
-        show_velocity(&self.ball);
+        self.handle_input();
+        self.update_entities();
+        self.handle_collision();
+        self.update_game_state();
+    }
+
+    fn update_game_state(&mut self) {
+        if game_lost(&self.ball) {
+            self.state = GameState::GameOver;
+        } else if game_won(self) {
+            self.state = GameState::GameWon;
+        }
+    }
+
+    fn handle_collision(&mut self) {
+        handle_site_collision(self);
+        handel_top_collision(self);
+        handle_paddle_collision(self);
+        handle_block_collision(self);
+    }
+
+    fn update_entities(&mut self) {
         update_ball_previous_position(&mut self.ball);
-        apply_movement(&mut self.player);
-        apply_ball_movement(&mut self.ball, &self.player);
-        apply_block_collision(self);
         increase_speed(self, SPEED_MULTIPLYER);
-        cheat(self);
+        update_ball_position(self);
+    }
+
+    fn handle_input(&mut self) {
+        if is_key_down(KeyCode::Left) {
+            if self.player.x - 5.0 < 0.0 {
+                self.player.x = 0.0;
+            } else {
+                self.player.x -= 5.0;
+            }
+        }
+
+        if is_key_down(KeyCode::Right) {
+            if self.player.x + self.player.width + 5.0 > screen_width() {
+                self.player.x = screen_width() - self.player.width;
+            } else {
+                self.player.x += 5.0;
+            }
+        }
+
+        if is_key_down(KeyCode::C) {
+            for row in self.blocks.iter_mut() {
+                for block in row.iter_mut() {
+                    *block = false;
+                }
+            }
+        }
     }
 
     fn draw(&self) {
