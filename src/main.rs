@@ -197,38 +197,23 @@ fn game_lost(ball: &Ball) -> bool {
 }
 
 fn apply_block_collision(game: &mut Game) {
-    // we're tracking if something has been hit already in order to avoid
-    // multiple collisions in one frame, which can lead to the ball ignoring the first
-    // collision, then flipping like 3 blocks at once
-    // let mut hit = false;
     for (j, row) in game.blocks.iter_mut().enumerate().take(BLOCKS_H) {
         for (i, block) in row.iter_mut().enumerate().take(BLOCKS_W) {
-            // if *block || hit {
-            //     continue;
-            // }
-
-            if collision_detected(&game.ball, j, i) {
-                *block = false;
-                game.ball.velocity_y = -game.ball.velocity_y;
-
-                // hit = true;
-                break;
+            if *block {
+                let block_width = screen_width() / BLOCKS_W as f32;
+                let block_height = screen_height() / (2.0 * BLOCKS_H as f32);
+                // check for collision with the ball
+                if game.ball.x + game.ball.radius >= i as f32 * block_width
+                    && game.ball.x - game.ball.radius <= (i + 1) as f32 * block_width
+                    && game.ball.y + game.ball.radius >= j as f32 * block_height
+                    && game.ball.y - game.ball.radius <= (j + 1) as f32 * block_height
+                {
+                    *block = false;
+                    game.ball.velocity_y = -game.ball.velocity_y;
+                }
             }
         }
-
-        // if hit {
-        //     break;
-        // }
     }
-}
-
-fn collision_detected(ball: &Ball, j: usize, i: usize) -> bool {
-    let block_width = screen_width() / BLOCKS_W as f32;
-    let block_height = screen_height() / (2.0 * BLOCKS_H as f32);
-    ball.x + ball.radius >= i as f32 * block_width
-        && ball.x - ball.radius <= (i + 1) as f32 * block_width
-        && ball.y + ball.radius >= j as f32 * block_height
-        && ball.y - ball.radius <= (j + 1) as f32 * block_height
 }
 
 fn draw_game(game: &Game) {
