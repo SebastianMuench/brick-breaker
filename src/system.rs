@@ -20,8 +20,10 @@ pub fn increase_speed(game: &mut Game, speed_multiplier: f32) {
     // every 10 seconds, increase the speed of the ball by 10% // this currently isn't working but i'm not sure why
     if get_time() > game.next_speed_increase_time {
         game.next_speed_increase_time += 10.0;
-        game.ball.velocity_x *= speed_multiplier;
-        game.ball.velocity_y *= speed_multiplier;
+        for ball in game.balls.iter_mut() {
+            ball.velocity_x *= speed_multiplier;
+            ball.velocity_y *= speed_multiplier;
+        }
     }
 }
 
@@ -38,35 +40,41 @@ pub fn game_won(game: &Game) -> bool {
     true
 }
 
-pub fn game_lost(ball: &Ball) -> bool {
-    // if the ball goes below the paddle, we lose
-    ball.y - ball.radius > screen_height()
+pub fn game_lost(balls: &Vec<Ball>) -> bool {
+    // if there's only one ball and it's below the screen, we lost
+    if balls.is_empty() {
+        return true;
+    }
+
+    false
 }
 
 pub fn handle_block_collision(game: &mut Game) {
     let mut collision_occurred = false;
 
-    for (j, row) in game.blocks.iter_mut().enumerate() {
-        for (i, block) in row.iter_mut().enumerate() {
-            if *block && !collision_occurred {
-                let block_rect: Block = calculate_block_rect(i, j);
+    for ball in game.balls.iter_mut() {
+        for (j, row) in game.blocks.iter_mut().enumerate() {
+            for (i, block) in row.iter_mut().enumerate() {
+                if *block && !collision_occurred {
+                    let block_rect: Block = calculate_block_rect(i, j);
 
-                if block_collisides(&game.ball, &block_rect) {
-                    let directions = detect_direction(&game.ball, &block_rect);
-                    *block = false;
-                    if directions.0 || directions.1 {
-                        game.ball.velocity_x = -game.ball.velocity_x;
-                    } else {
-                        game.ball.velocity_y = -game.ball.velocity_y;
+                    if block_collisides(&ball, &block_rect) {
+                        let directions = detect_direction(&ball, &block_rect);
+                        *block = false;
+                        if directions.0 || directions.1 {
+                            ball.velocity_x = -ball.velocity_x;
+                        } else {
+                            ball.velocity_y = -ball.velocity_y;
+                        }
+                        collision_occurred = true;
+                        break;
                     }
-                    collision_occurred = true;
-                    break;
                 }
             }
-        }
 
-        if collision_occurred {
-            break;
+            if collision_occurred {
+                break;
+            }
         }
     }
 }
@@ -99,32 +107,47 @@ pub fn block_collisides(ball: &Ball, block: &Block) -> bool {
 }
 
 pub fn handle_site_collision(game: &mut Game) {
-    if game.ball.x - game.ball.radius <= 0.0 || game.ball.x + game.ball.radius >= screen_width() {
-        game.ball.velocity_x = -game.ball.velocity_x;
+    for ball in game.balls.iter_mut() {
+        if ball.x - ball.radius <= 0.0 || ball.x + ball.radius >= screen_width() {
+            ball.velocity_x = -ball.velocity_x;
+        }
     }
 }
 
 pub fn handle_top_collision(game: &mut Game) {
-    if game.ball.y - game.ball.radius <= 0.0 {
-        game.ball.velocity_y = -game.ball.velocity_y;
+    for ball in game.balls.iter_mut() {
+        if ball.y - ball.radius <= 0.0 {
+            ball.velocity_y = -ball.velocity_y;
+        }
     }
 }
 
 pub fn handle_paddle_collision(game: &mut Game) {
-    if game.ball.y + game.ball.radius >= game.player.y
-        && game.ball.x >= game.player.x
-        && game.ball.x <= game.player.x + game.player.width
-    {
-        game.ball.velocity_y = -game.ball.velocity_y;
+    for ball in game.balls.iter_mut() {
+        if ball.y + ball.radius >= game.player.y
+            && ball.x >= game.player.x
+            && ball.x <= game.player.x + game.player.width
+        {
+            ball.velocity_y = -ball.velocity_y;
+        }
     }
 }
 
-pub fn update_ball_position(game: &mut Game) {
-    game.ball.x += game.ball.velocity_x;
-    game.ball.y += game.ball.velocity_y;
+pub fn check_ball_out_of_bounds(game: &mut Game) {
+    game.balls
+        .retain(|ball| ball.y - ball.radius <= screen_height());
 }
 
-pub fn update_ball_previous_position(ball: &mut Ball) {
-    ball.prev_x = ball.x;
-    ball.prev_y = ball.y;
+pub fn update_ball_position(game: &mut Game) {
+    for ball in game.balls.iter_mut() {
+        ball.x += ball.velocity_x;
+        ball.y += ball.velocity_y;
+    }
+}
+
+pub fn update_ball_previous_position(game: &mut Game) {
+    for ball in game.balls.iter_mut() {
+        ball.prev_x = ball.x;
+        ball.prev_y = ball.y;
+    }
 }

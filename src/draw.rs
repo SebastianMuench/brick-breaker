@@ -57,7 +57,18 @@ pub fn draw_game(game: &Game) {
         WHITE,
     );
 
-    draw_circle(game.ball.x, game.ball.y, game.ball.radius, WHITE);
+    for ball in game.balls.iter() {
+        draw_circle(ball.x, ball.y, ball.radius, WHITE);
+    }
+
+    // showing the amount of balls in the bottom left corner
+    draw_text(
+        format!("Balls: {}", game.balls.len()),
+        10.0,
+        screen_height() - 10.0,
+        20.0,
+        WHITE,
+    );
 
     for (j, row) in game.blocks.iter().enumerate().take(BLOCKS_H) {
         for (i, block) in row.iter().enumerate().take(BLOCKS_W) {

@@ -4,9 +4,9 @@ use crate::{
     entities::{Ball, Paddle},
     state::GameState::{self, StartScreen},
     system::{
-        game_lost, game_won, handle_block_collision, handle_paddle_collision,
-        handle_site_collision, handle_top_collision, increase_speed, toggle_game,
-        update_ball_position, update_ball_previous_position,
+        check_ball_out_of_bounds, game_lost, game_won, handle_block_collision,
+        handle_paddle_collision, handle_site_collision, handle_top_collision, increase_speed,
+        toggle_game, update_ball_position, update_ball_previous_position,
     },
 };
 use macroquad::{
@@ -15,10 +15,10 @@ use macroquad::{
     window::{screen_height, screen_width},
 };
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct Game {
     pub player: Paddle,
-    pub ball: Ball,
+    pub balls: Vec<Ball>,
     pub blocks: [[bool; BLOCKS_W]; BLOCKS_H],
     pub state: GameState,
     pub next_speed_increase_time: f64,
@@ -32,15 +32,27 @@ impl Game {
                 y: screen_height() - 20.0,
                 width: 100.0,
             },
-            ball: Ball {
-                x: screen_width() / 2.0,
-                y: screen_height() / 2.0,
-                prev_x: screen_width() / 2.0,
-                prev_y: screen_height() / 2.0,
-                radius: 10.0,
-                velocity_x: 1.0,
-                velocity_y: 1.0,
-            },
+            balls: vec![
+                Ball::new(),
+                Ball {
+                    x: screen_width() / 1.75,
+                    y: screen_height() / 1.75,
+                    prev_x: screen_width() / 1.75,
+                    prev_y: screen_height() / 1.75,
+                    radius: 10.0,
+                    velocity_x: 1.0,
+                    velocity_y: 1.0,
+                },
+                Ball {
+                    x: screen_width() / 1.65,
+                    y: screen_height() / 1.65,
+                    prev_x: screen_width() / 1.65,
+                    prev_y: screen_height() / 1.65,
+                    radius: 10.0,
+                    velocity_x: 1.0,
+                    velocity_y: 1.0,
+                },
+            ],
             // creating a 2d array of block
             // the inner array creates BLOCKS_W times a boolean true and the outer array then creates
             // BLOCKS_H * that 10 boolean array
@@ -105,7 +117,7 @@ impl Game {
     }
 
     pub fn update_game_state(&mut self) {
-        if game_lost(&self.ball) {
+        if game_lost(&self.balls) {
             self.state = GameState::GameOver;
         } else if game_won(self) {
             self.state = GameState::GameWon;
@@ -120,9 +132,10 @@ impl Game {
     }
 
     fn update_entities(&mut self) {
-        update_ball_previous_position(&mut self.ball);
-        increase_speed(self, SPEED_MULTIPLYER);
+        update_ball_previous_position(self);
         update_ball_position(self);
+        check_ball_out_of_bounds(self);
+        increase_speed(self, SPEED_MULTIPLYER);
     }
 
     fn handle_input(&mut self) {
