@@ -40,7 +40,7 @@ pub fn game_won(game: &Game) -> bool {
     true
 }
 
-pub fn game_lost(balls: &Vec<Ball>) -> bool {
+pub fn game_lost(balls: &[Ball]) -> bool {
     // if there's only one ball and it's below the screen, we lost
     if balls.is_empty() {
         return true;
@@ -58,8 +58,8 @@ pub fn handle_block_collision(game: &mut Game) {
                 if *block && !collision_occurred {
                     let block_rect: Block = calculate_block_rect(i, j);
 
-                    if block_collisides(&ball, &block_rect) {
-                        let directions = detect_direction(&ball, &block_rect);
+                    if block_collides(ball, &block_rect) {
+                        let directions = detect_direction(ball, &block_rect);
                         *block = false;
                         if directions.0 || directions.1 {
                             ball.velocity_x = -ball.velocity_x;
@@ -99,7 +99,7 @@ pub fn calculate_block_rect(i: usize, j: usize) -> Block {
     }
 }
 
-pub fn block_collisides(ball: &Ball, block: &Block) -> bool {
+pub fn block_collides(ball: &Ball, block: &Block) -> bool {
     ball.x + ball.radius >= block.x
         && ball.x - ball.radius <= block.x + block.width
         && ball.y + ball.radius >= block.y
