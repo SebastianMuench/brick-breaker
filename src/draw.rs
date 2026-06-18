@@ -64,10 +64,10 @@ pub fn draw_game(game: &Game) {
                 let block_width = WORLD_W / BLOCKS_W as f32;
                 let block_height = WORLD_H / (2.0 * BLOCKS_H as f32);
                 draw_rectangle(
-                    i as f32 * block_width + 0.1,
-                    j as f32 * block_height + 0.1,
-                    block_width - 0.2,
-                    block_height - 0.2,
+                    i as f32 * block_width + 0.25,
+                    j as f32 * block_height + 0.25,
+                    block_width - 0.5,
+                    block_height - 0.5,
                     WHITE,
                 );
             }
