@@ -64,27 +64,27 @@ pub fn handle_block_collision(game: &mut Game) {
                     if block_collides(ball, &block_rect) {
                         *block = false;
 
-                        // Find the closest point on the block to the ball
+                        // find the point on the block that is closest to the ball center
                         let closest_x = ball.x.clamp(block_rect.x, block_rect.x + block_rect.width);
-                        let closest_y = ball.y.clamp(block_rect.y, block_rect.y + block_rect.height);
+                        let closest_y =
+                            ball.y.clamp(block_rect.y, block_rect.y + block_rect.height);
 
-                        // Calculate penetration/overlap on each axis
+                        // figure out how far the ball has pushed inside the block on both axes
                         let overlap_x = ball.radius - (ball.x - closest_x).abs();
                         let overlap_y = ball.radius - (ball.y - closest_y).abs();
 
+                        // we bounce on the axis with the smaller overlap because that's where the hit happened
                         if overlap_x < overlap_y {
-                            // Hit from left or right side
                             ball.velocity_x = -ball.velocity_x;
-                            // Resolve penetration along X-axis
+                            // push the ball back outside the block on the x axis so it doesn't get stuck
                             if ball.x < closest_x {
                                 ball.x = block_rect.x - ball.radius;
                             } else {
                                 ball.x = block_rect.x + block_rect.width + ball.radius;
                             }
                         } else {
-                            // Hit from top or bottom side
                             ball.velocity_y = -ball.velocity_y;
-                            // Resolve penetration along Y-axis
+                            // push the ball back outside the block on the y axis so it doesn't get stuck
                             if ball.y < closest_y {
                                 ball.y = block_rect.y - ball.radius;
                             } else {
@@ -146,13 +146,16 @@ pub fn handle_top_collision(game: &mut Game) {
 
 pub fn handle_paddle_collision(game: &mut Game) {
     for ball in game.balls.iter_mut() {
+        // check if the ball overlaps with the paddle area
         if ball.y + ball.radius >= game.player.y
             && ball.y - ball.radius <= game.player.y + game.player.height
             && ball.x >= game.player.x
             && ball.x <= game.player.x + game.player.width
         {
+            // only bounce if the ball is moving down to prevent it from getting stuck inside the paddle
             if ball.velocity_y > 0.0 {
                 ball.velocity_y = -ball.velocity_y;
+                // push the ball back up to the top surface of the paddle
                 ball.y = game.player.y - ball.radius;
             }
         }
