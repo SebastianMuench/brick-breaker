@@ -1,5 +1,5 @@
 use crate::{
-    BLOCKS_H, BLOCKS_W,
+    BLOCKS_H, BLOCKS_W, WORLD_H, WORLD_W,
     entities::{Ball, Block},
     game::Game,
     state::GameState,
@@ -10,16 +10,19 @@ pub fn toggle_game(game: &mut Game) {
     if is_key_pressed(KeyCode::P) {
         game.state = match game.state {
             GameState::Playing => GameState::Pause,
-            GameState::Pause => GameState::Playing,
+            GameState::Pause => {
+                game.next_speed_increase_time = get_time() + 10.0;
+                GameState::Playing
+            }
             s => s,
         };
     }
 }
 
 pub fn increase_speed(game: &mut Game, speed_multiplier: f32) {
-    // every 10 seconds, increase the speed of the ball by 10% // this currently isn't working but i'm not sure why
+    // every 10 seconds, increase the speed of the ball by 10%
     if get_time() > game.next_speed_increase_time {
-        game.next_speed_increase_time += 10.0;
+        game.next_speed_increase_time = get_time() + 10.0;
         for ball in game.balls.iter_mut() {
             ball.velocity_x *= speed_multiplier;
             ball.velocity_y *= speed_multiplier;
@@ -59,13 +62,36 @@ pub fn handle_block_collision(game: &mut Game) {
                     let block_rect: Block = calculate_block_rect(i, j);
 
                     if block_collides(ball, &block_rect) {
-                        let directions = detect_direction(ball, &block_rect);
                         *block = false;
-                        if directions.0 || directions.1 {
+
+                        // Find the closest point on the block to the ball
+                        let closest_x = ball.x.clamp(block_rect.x, block_rect.x + block_rect.width);
+                        let closest_y = ball.y.clamp(block_rect.y, block_rect.y + block_rect.height);
+
+                        // Calculate penetration/overlap on each axis
+                        let overlap_x = ball.radius - (ball.x - closest_x).abs();
+                        let overlap_y = ball.radius - (ball.y - closest_y).abs();
+
+                        if overlap_x < overlap_y {
+                            // Hit from left or right side
                             ball.velocity_x = -ball.velocity_x;
+                            // Resolve penetration along X-axis
+                            if ball.x < closest_x {
+                                ball.x = block_rect.x - ball.radius;
+                            } else {
+                                ball.x = block_rect.x + block_rect.width + ball.radius;
+                            }
                         } else {
+                            // Hit from top or bottom side
                             ball.velocity_y = -ball.velocity_y;
+                            // Resolve penetration along Y-axis
+                            if ball.y < closest_y {
+                                ball.y = block_rect.y - ball.radius;
+                            } else {
+                                ball.y = block_rect.y + block_rect.height + ball.radius;
+                            }
                         }
+
                         collision_occurred = true;
                         break;
                     }
@@ -79,18 +105,9 @@ pub fn handle_block_collision(game: &mut Game) {
     }
 }
 
-pub fn detect_direction(ball: &Ball, block: &Block) -> (bool, bool, bool, bool) {
-    (
-        ball.prev_x + ball.radius <= block.x,
-        ball.prev_x - ball.radius >= block.x + block.width,
-        ball.prev_y + ball.radius <= block.y,
-        ball.prev_y - ball.radius >= block.y + block.height,
-    )
-}
-
 pub fn calculate_block_rect(i: usize, j: usize) -> Block {
-    let block_width = screen_width() / BLOCKS_W as f32;
-    let block_height = screen_height() / (2.0 * BLOCKS_H as f32);
+    let block_width = WORLD_W / BLOCKS_W as f32;
+    let block_height = WORLD_H / (2.0 * BLOCKS_H as f32);
     Block {
         x: i as f32 * block_width,
         y: j as f32 * block_height,
@@ -108,8 +125,12 @@ pub fn block_collides(ball: &Ball, block: &Block) -> bool {
 
 pub fn handle_site_collision(game: &mut Game) {
     for ball in game.balls.iter_mut() {
-        if ball.x - ball.radius <= 0.0 || ball.x + ball.radius >= screen_width() {
-            ball.velocity_x = -ball.velocity_x;
+        if ball.x - ball.radius <= 0.0 {
+            ball.velocity_x = ball.velocity_x.abs();
+            ball.x = ball.radius;
+        } else if ball.x + ball.radius >= WORLD_W {
+            ball.velocity_x = -ball.velocity_x.abs();
+            ball.x = WORLD_W - ball.radius;
         }
     }
 }
@@ -117,7 +138,8 @@ pub fn handle_site_collision(game: &mut Game) {
 pub fn handle_top_collision(game: &mut Game) {
     for ball in game.balls.iter_mut() {
         if ball.y - ball.radius <= 0.0 {
-            ball.velocity_y = -ball.velocity_y;
+            ball.velocity_y = ball.velocity_y.abs();
+            ball.y = ball.radius;
         }
     }
 }
@@ -125,17 +147,20 @@ pub fn handle_top_collision(game: &mut Game) {
 pub fn handle_paddle_collision(game: &mut Game) {
     for ball in game.balls.iter_mut() {
         if ball.y + ball.radius >= game.player.y
+            && ball.y - ball.radius <= game.player.y + game.player.height
             && ball.x >= game.player.x
             && ball.x <= game.player.x + game.player.width
         {
-            ball.velocity_y = -ball.velocity_y;
+            if ball.velocity_y > 0.0 {
+                ball.velocity_y = -ball.velocity_y;
+                ball.y = game.player.y - ball.radius;
+            }
         }
     }
 }
 
 pub fn check_ball_out_of_bounds(game: &mut Game) {
-    game.balls
-        .retain(|ball| ball.y - ball.radius <= screen_height());
+    game.balls.retain(|ball| ball.y - ball.radius <= WORLD_H);
 }
 
 pub fn update_ball_position(game: &mut Game) {
@@ -154,5 +179,5 @@ pub fn update_ball_previous_position(game: &mut Game) {
 
 // we need to do this in order to make sure the player is displayed correctly even after a resize
 pub fn update_player_position(game: &mut Game) {
-    game.player.y = screen_height() - 20.0;
+    game.player.y = WORLD_H * 0.9;
 }

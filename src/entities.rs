@@ -1,10 +1,22 @@
-use macroquad::window::{screen_height, screen_width};
+use crate::{WORLD_H, WORLD_W};
 
 #[derive(Copy, Clone)]
 pub struct Paddle {
     pub x: f32,
     pub y: f32,
     pub width: f32,
+    pub height: f32,
+}
+
+impl Paddle {
+    pub fn new() -> Self {
+        Paddle {
+            x: WORLD_W / 2.0,
+            y: WORLD_H * 0.9,
+            width: WORLD_W * 0.1,
+            height: WORLD_H * 0.03,
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -21,13 +33,13 @@ pub struct Ball {
 impl Ball {
     pub fn new() -> Self {
         Ball {
-            x: screen_width() / 2.0,
-            y: screen_height() / 2.0,
-            prev_x: screen_width() / 2.0,
-            prev_y: screen_height() / 2.0,
-            radius: 10.0,
-            velocity_x: 1.0,
-            velocity_y: 1.0,
+            x: WORLD_W / 2.0,
+            y: WORLD_H * 0.6,
+            prev_x: WORLD_W / 2.0,
+            prev_y: WORLD_H * 0.6,
+            radius: WORLD_W * 0.01,
+            velocity_x: WORLD_W * 0.001,
+            velocity_y: WORLD_H * 0.001,
         }
     }
 }

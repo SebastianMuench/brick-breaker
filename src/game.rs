@@ -1,6 +1,6 @@
 use crate::{
-    BLOCKS_H, BLOCKS_W, SPEED_MULTIPLYER,
-    draw::{draw_game, draw_game_over, draw_game_won, draw_pause, draw_start},
+    BLOCKS_H, BLOCKS_W, SPEED_MULTIPLYER, WORLD_W,
+    draw::{draw_game, draw_game_over, draw_game_won, draw_pause, draw_start, set_game_camera},
     entities::{Ball, Paddle},
     state::GameState::{self, StartScreen},
     system::{
@@ -11,14 +11,16 @@ use crate::{
 };
 
 use macroquad::{
+    camera::set_default_camera,
     input::{KeyCode, is_key_down, is_key_pressed},
+    texture::Texture2D,
     time::get_time,
-    window::{screen_height, screen_width},
 };
 
 #[derive(Clone)]
 pub struct Game {
     pub player: Paddle,
+    pub paddle_texture: Texture2D,
     pub balls: Vec<Ball>,
     pub blocks: [[bool; BLOCKS_W]; BLOCKS_H],
     pub state: GameState,
@@ -26,34 +28,11 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new() -> Self {
+    pub fn new(paddle_texture: Texture2D) -> Self {
         Game {
-            player: Paddle {
-                x: screen_width() / 2.0,
-                y: screen_height() - 20.0,
-                width: 100.0,
-            },
-            balls: vec![
-                Ball::new(),
-                Ball {
-                    x: screen_width() / 1.75,
-                    y: screen_height() / 1.75,
-                    prev_x: screen_width() / 1.75,
-                    prev_y: screen_height() / 1.75,
-                    radius: 10.0,
-                    velocity_x: 1.0,
-                    velocity_y: 1.0,
-                },
-                Ball {
-                    x: screen_width() / 1.65,
-                    y: screen_height() / 1.65,
-                    prev_x: screen_width() / 1.65,
-                    prev_y: screen_height() / 1.65,
-                    radius: 10.0,
-                    velocity_x: 1.0,
-                    velocity_y: 1.0,
-                },
-            ],
+            player: Paddle::new(),
+            paddle_texture,
+            balls: vec![Ball::new()],
             // creating a 2d array of block
             // the inner array creates BLOCKS_W times a boolean true and the outer array then creates
             // BLOCKS_H * that 10 boolean array
@@ -61,6 +40,16 @@ impl Game {
             state: StartScreen,
             next_speed_increase_time: get_time() + 10.0,
         }
+    }
+
+    fn reset(&mut self) {
+        // we need to reset all fields except the textures to default in order to avoid reloading the
+        // textures everytime we want to restart the game
+        self.player = Paddle::new();
+        self.balls = vec![Ball::new()];
+        self.blocks = [[true; BLOCKS_W]; BLOCKS_H];
+        self.state = GameState::Playing;
+        self.next_speed_increase_time = get_time() + 10.0;
     }
 
     pub fn update(&mut self) {
@@ -80,13 +69,12 @@ impl Game {
             }
             GameState::GameOver => {
                 if is_key_pressed(KeyCode::Space) {
-                    *self = Game::new();
+                    Game::reset(self);
                 }
             }
             GameState::GameWon => {
                 if is_key_pressed(KeyCode::Space) {
-                    *self = Game::new();
-                    self.state = GameState::Playing;
+                    Game::reset(self);
                 }
             }
         }
@@ -95,16 +83,24 @@ impl Game {
     pub fn draw(&self) {
         match self.state {
             GameState::StartScreen => {
+                self.draw_playing();
+                set_default_camera();
                 draw_start();
             }
             GameState::Playing => self.draw_playing(),
             GameState::Pause => {
+                self.draw_playing();
+                set_default_camera();
                 draw_pause();
             }
             GameState::GameOver => {
+                self.draw_playing();
+                set_default_camera();
                 draw_game_over();
             }
             GameState::GameWon => {
+                self.draw_playing();
+                set_default_camera();
                 draw_game_won();
             }
         }
@@ -141,19 +137,21 @@ impl Game {
     }
 
     fn handle_input(&mut self) {
+        const DELTA: f32 = WORLD_W * 0.01;
+
         if is_key_down(KeyCode::Left) {
-            if self.player.x - 5.0 < 0.0 {
+            if self.player.x - DELTA < 0.0 {
                 self.player.x = 0.0;
             } else {
-                self.player.x -= 5.0;
+                self.player.x -= DELTA;
             }
         }
 
         if is_key_down(KeyCode::Right) {
-            if self.player.x + self.player.width + 5.0 > screen_width() {
-                self.player.x = screen_width() - self.player.width;
+            if self.player.x + self.player.width + DELTA > WORLD_W {
+                self.player.x = WORLD_W - self.player.width;
             } else {
-                self.player.x += 5.0;
+                self.player.x += DELTA;
             }
         }
 
@@ -167,6 +165,7 @@ impl Game {
     }
 
     pub fn draw_playing(&self) {
+        set_game_camera();
         draw_game(self);
     }
 }

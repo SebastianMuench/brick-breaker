@@ -3,6 +3,13 @@
 version = 4
 
 [[package]]
+name = "Seppong"
+version = "0.1.0"
+dependencies = [
+ "macroquad",
+]
+
+[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -229,13 +236,6 @@ name = "quad-rand"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a651516ddc9168ebd67b24afd085a718be02f8858fe406591b013d101ce2f40"
-
-[[package]]
-name = "rust-pong"
-version = "0.1.0"
-dependencies = [
- "macroquad",
-]
 
 [[package]]
 name = "simd-adler32"
