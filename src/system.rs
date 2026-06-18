@@ -151,3 +151,8 @@ pub fn update_ball_previous_position(game: &mut Game) {
         ball.prev_y = ball.y;
     }
 }
+
+// we need to do this in order to make sure the player is displayed correctly even after a resize
+pub fn update_player_position(game: &mut Game) {
+    game.player.y = screen_height() - 20.0;
+}

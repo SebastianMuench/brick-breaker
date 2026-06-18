@@ -6,9 +6,10 @@ use crate::{
     system::{
         check_ball_out_of_bounds, game_lost, game_won, handle_block_collision,
         handle_paddle_collision, handle_site_collision, handle_top_collision, increase_speed,
-        toggle_game, update_ball_position, update_ball_previous_position,
+        toggle_game, update_ball_position, update_ball_previous_position, update_player_position,
     },
 };
+
 use macroquad::{
     input::{KeyCode, is_key_down, is_key_pressed},
     time::get_time,
@@ -132,6 +133,7 @@ impl Game {
     }
 
     fn update_entities(&mut self) {
+        update_player_position(self);
         update_ball_previous_position(self);
         update_ball_position(self);
         check_ball_out_of_bounds(self);
