@@ -1,6 +1,6 @@
 use crate::{
     BLOCKS_H, BLOCKS_W, WORLD_H, WORLD_W,
-    entities::{Ball, Block},
+    entities::{Ball, BlockCoordinates},
     game::Game,
     state::GameState,
 };
@@ -34,7 +34,7 @@ pub fn game_won(game: &Game) -> bool {
     // if all blocks are false, we won
     for row in game.blocks.iter().take(BLOCKS_H) {
         for block in row.iter().take(BLOCKS_W) {
-            if *block {
+            if block.active {
                 return false;
             }
         }
@@ -58,11 +58,11 @@ pub fn handle_block_collision(game: &mut Game) {
     for ball in game.balls.iter_mut() {
         for (j, row) in game.blocks.iter_mut().enumerate() {
             for (i, block) in row.iter_mut().enumerate() {
-                if *block && !collision_occurred {
-                    let block_rect: Block = calculate_block_rect(i, j);
+                if block.active && !collision_occurred {
+                    let block_rect: BlockCoordinates = calculate_block_rect(i, j);
 
                     if block_collides(ball, &block_rect) {
-                        *block = false;
+                        block.active = false;
 
                         // find the point on the block that is closest to the ball center
                         let closest_x = ball.x.clamp(block_rect.x, block_rect.x + block_rect.width);
@@ -105,10 +105,10 @@ pub fn handle_block_collision(game: &mut Game) {
     }
 }
 
-pub fn calculate_block_rect(i: usize, j: usize) -> Block {
+pub fn calculate_block_rect(i: usize, j: usize) -> BlockCoordinates {
     let block_width = WORLD_W / BLOCKS_W as f32;
     let block_height = WORLD_H / (2.0 * BLOCKS_H as f32);
-    Block {
+    BlockCoordinates {
         x: i as f32 * block_width,
         y: j as f32 * block_height,
         width: block_width,
@@ -116,7 +116,7 @@ pub fn calculate_block_rect(i: usize, j: usize) -> Block {
     }
 }
 
-pub fn block_collides(ball: &Ball, block: &Block) -> bool {
+pub fn block_collides(ball: &Ball, block: &BlockCoordinates) -> bool {
     ball.x + ball.radius >= block.x
         && ball.x - ball.radius <= block.x + block.width
         && ball.y + ball.radius >= block.y

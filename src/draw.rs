@@ -1,11 +1,11 @@
 use macroquad::{
     camera::{Camera2D, set_camera},
-    color::{WHITE, Color},
+    color::{Color, WHITE},
     math::{Vec2, vec2},
     shapes::{draw_circle, draw_rectangle},
     text::{draw_text, measure_text},
     texture::{DrawTextureParams, draw_texture_ex},
-    window::{screen_width, screen_height},
+    window::{screen_height, screen_width},
 };
 
 use crate::{BLOCKS_H, BLOCKS_W, WORLD_H, WORLD_W, game::Game};
@@ -60,7 +60,7 @@ pub fn draw_game(game: &Game) {
 
     for (j, row) in game.blocks.iter().enumerate().take(BLOCKS_H) {
         for (i, block) in row.iter().enumerate().take(BLOCKS_W) {
-            if *block {
+            if block.active {
                 let block_width = WORLD_W / BLOCKS_W as f32;
                 let block_height = WORLD_H / (2.0 * BLOCKS_H as f32);
                 draw_rectangle(

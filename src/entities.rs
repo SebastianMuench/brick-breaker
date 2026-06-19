@@ -1,3 +1,5 @@
+use macroquad::rand;
+
 use crate::{WORLD_H, WORLD_W};
 
 #[derive(Copy, Clone)]
@@ -44,8 +46,38 @@ impl Ball {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone, Copy)]
 pub struct Block {
+    pub active: bool,
+    pub power_up: Option<PowerUp>,
+}
+
+impl Block {
+    pub fn new() -> Self {
+        Block {
+            active: true,
+            power_up: {
+                let random_value: u32 = rand::gen_range(1, 100);
+                if random_value < 10 {
+                    Some(PowerUp::ExtraBall)
+                } else if random_value < 20 {
+                    Some(PowerUp::PaddleExpand)
+                } else {
+                    None
+                }
+            },
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+enum PowerUp {
+    ExtraBall,
+    PaddleExpand,
+}
+
+#[derive(Copy, Clone)]
+pub struct BlockCoordinates {
     pub x: f32,
     pub y: f32,
     pub width: f32,
