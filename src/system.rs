@@ -1,6 +1,6 @@
 use crate::{
     BLOCKS_H, BLOCKS_W, WORLD_H, WORLD_W,
-    entities::{Ball, BlockCoordinates},
+    entities::{Ball, BlockCoordinates, FallingPowerUp},
     game::Game,
     state::GameState,
 };
@@ -63,6 +63,17 @@ pub fn handle_block_collision(game: &mut Game) {
 
                     if block_collides(ball, &block_rect) {
                         block.active = false;
+                        let power_up = block.power_up;
+                        if let Some(power_up) = power_up {
+                            game.falling_power_ups.push(FallingPowerUp {
+                                x: block_rect.x + block_rect.width / 2.0,
+                                y: block_rect.y + block_rect.height / 2.0,
+                                width: block_rect.width * 0.8,
+                                height: block_rect.height * 0.8,
+                                power_up,
+                                velocity_y: WORLD_H * 0.002,
+                            });
+                        }
 
                         // find the point on the block that is closest to the ball center
                         let closest_x = ball.x.clamp(block_rect.x, block_rect.x + block_rect.width);
@@ -162,6 +173,38 @@ pub fn handle_paddle_collision(game: &mut Game) {
     }
 }
 
+pub fn handle_power_up_collision(game: &mut Game) {
+    game.falling_power_ups.retain(|power_up| {
+        //player collision
+        let collides = power_up.y + power_up.height >= game.player.y
+            && power_up.y <= game.player.y + game.player.height
+            && power_up.x + power_up.width >= game.player.x
+            && power_up.x <= game.player.x + game.player.width;
+
+        if collides {
+            match power_up.power_up {
+                crate::entities::PowerUp::ExtraBall => {
+                    game.balls.push(Ball::new());
+                }
+                crate::entities::PowerUp::PaddleExpand => {
+                    // Keep the expanded paddle inside the world.  If it is against the
+                    // right edge, simply increasing its width would grow entirely
+                    // off-screen and make the pickup appear to have no effect.
+                    let center_x = game.player.x + game.player.width / 2.0;
+                    game.player.width = (game.player.width * 1.5).min(WORLD_W);
+                    game.player.x = (center_x - game.player.width / 2.0)
+                        .clamp(0.0, WORLD_W - game.player.width);
+                }
+            }
+        }
+
+        // check if the power up is out of bounds
+        let out_of_bounds = power_up.y > WORLD_H;
+
+        !collides && !out_of_bounds
+    });
+}
+
 pub fn check_ball_out_of_bounds(game: &mut Game) {
     game.balls.retain(|ball| ball.y - ball.radius <= WORLD_H);
 }
@@ -170,6 +213,12 @@ pub fn update_ball_position(game: &mut Game) {
     for ball in game.balls.iter_mut() {
         ball.x += ball.velocity_x;
         ball.y += ball.velocity_y;
+    }
+}
+
+pub fn update_falling_power_ups_position(game: &mut Game) {
+    for power_up in game.falling_power_ups.iter_mut() {
+        power_up.y += power_up.velocity_y;
     }
 }
 

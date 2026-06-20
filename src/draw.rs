@@ -1,6 +1,6 @@
 use macroquad::{
     camera::{Camera2D, set_camera},
-    color::{Color, WHITE},
+    color::{BLUE, Color, WHITE},
     math::{Vec2, vec2},
     shapes::{draw_circle, draw_rectangle},
     text::{draw_text, measure_text},
@@ -72,6 +72,17 @@ pub fn draw_game(game: &Game) {
                 );
             }
         }
+    }
+
+    // falling power ups
+    for power_up in game.falling_power_ups.iter() {
+        draw_rectangle(
+            power_up.x,
+            power_up.y,
+            power_up.width,
+            power_up.height,
+            BLUE,
+        );
     }
 }
 

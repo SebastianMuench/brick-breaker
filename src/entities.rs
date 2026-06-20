@@ -71,9 +71,19 @@ impl Block {
 }
 
 #[derive(Clone, Copy)]
-enum PowerUp {
+pub enum PowerUp {
     ExtraBall,
     PaddleExpand,
+}
+
+#[derive(Clone, Copy)]
+pub struct FallingPowerUp {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    pub power_up: PowerUp,
+    pub velocity_y: f32,
 }
 
 #[derive(Copy, Clone)]

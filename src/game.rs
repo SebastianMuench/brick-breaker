@@ -1,12 +1,13 @@
 use crate::{
     BLOCKS_H, BLOCKS_W, SPEED_MULTIPLYER, WORLD_W,
     draw::{draw_game, draw_game_over, draw_game_won, draw_pause, draw_start, set_game_camera},
-    entities::{Ball, Block, Paddle},
+    entities::{Ball, Block, FallingPowerUp, Paddle},
     state::GameState::{self, StartScreen},
     system::{
         check_ball_out_of_bounds, game_lost, game_won, handle_block_collision,
-        handle_paddle_collision, handle_site_collision, handle_top_collision, increase_speed,
-        toggle_game, update_ball_position, update_ball_previous_position, update_player_position,
+        handle_paddle_collision, handle_power_up_collision, handle_site_collision,
+        handle_top_collision, increase_speed, toggle_game, update_ball_position,
+        update_ball_previous_position, update_falling_power_ups_position, update_player_position,
     },
 };
 
@@ -25,6 +26,11 @@ pub struct Game {
     pub blocks: [[Block; BLOCKS_W]; BLOCKS_H],
     pub state: GameState,
     pub next_speed_increase_time: f64,
+    pub falling_power_ups: Vec<FallingPowerUp>,
+}
+
+fn new_blocks() -> [[Block; BLOCKS_W]; BLOCKS_H] {
+    std::array::from_fn(|_| std::array::from_fn(|_| Block::new()))
 }
 
 impl Game {
@@ -36,9 +42,10 @@ impl Game {
             // creating a 2d array of block
             // the inner array creates BLOCKS_W times a boolean true and the outer array then creates
             // BLOCKS_H * that 10 boolean array
-            blocks: [[Block::new(); BLOCKS_W]; BLOCKS_H],
+            blocks: new_blocks(),
             state: StartScreen,
             next_speed_increase_time: get_time() + 10.0,
+            falling_power_ups: Vec::new(),
         }
     }
 
@@ -47,7 +54,8 @@ impl Game {
         // textures everytime we want to restart the game
         self.player = Paddle::new();
         self.balls = vec![Ball::new()];
-        self.blocks = [[Block::new(); BLOCKS_W]; BLOCKS_H];
+        self.blocks = new_blocks();
+        self.falling_power_ups.clear();
         self.state = GameState::Playing;
         self.next_speed_increase_time = get_time() + 10.0;
     }
@@ -126,10 +134,12 @@ impl Game {
         handle_top_collision(self);
         handle_paddle_collision(self);
         handle_block_collision(self);
+        handle_power_up_collision(self);
     }
 
     fn update_entities(&mut self) {
         update_player_position(self);
+        update_falling_power_ups_position(self);
         update_ball_previous_position(self);
         update_ball_position(self);
         check_ball_out_of_bounds(self);
