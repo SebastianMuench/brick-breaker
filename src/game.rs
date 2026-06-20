@@ -140,6 +140,7 @@ impl Game {
     fn update_entities(&mut self) {
         update_player_position(self);
         update_falling_power_ups_position(self);
+        self.player.apply_size_increases();
         update_ball_previous_position(self);
         update_ball_position(self);
         check_ball_out_of_bounds(self);

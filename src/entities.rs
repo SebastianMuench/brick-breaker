@@ -1,13 +1,15 @@
-use macroquad::rand;
+use macroquad::{rand, time::get_time};
 
 use crate::{WORLD_H, WORLD_W};
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct Paddle {
     pub x: f32,
     pub y: f32,
     pub width: f32,
     pub height: f32,
+    pub base_width: f32,
+    pub expanded_until: Vec<f64>,
 }
 
 impl Paddle {
@@ -17,7 +19,14 @@ impl Paddle {
             y: WORLD_H * 0.9,
             width: WORLD_W * 0.1,
             height: WORLD_H * 0.03,
+            base_width: WORLD_W * 0.1,
+            expanded_until: Vec::new(),
         }
+    }
+
+    pub fn apply_size_increases(&mut self) {
+        self.expanded_until.retain(|&time| time > get_time());
+        self.width = self.base_width * (1.0 + 0.5 * self.expanded_until.len() as f32);
     }
 }
 
@@ -34,14 +43,19 @@ pub struct Ball {
 
 impl Ball {
     pub fn new() -> Self {
+        // we're randomizing the velocity so balls do not move in the exact same
+        // direction every time, which is kinda lame
+        let speed = ((WORLD_W * 0.001).powi(2) + (WORLD_H * 0.001).powi(2)).sqrt();
+        let angle = rand::gen_range(0.35, std::f32::consts::PI - 0.35);
+
         Ball {
             x: WORLD_W / 2.0,
             y: WORLD_H * 0.6,
             prev_x: WORLD_W / 2.0,
             prev_y: WORLD_H * 0.6,
             radius: WORLD_W * 0.01,
-            velocity_x: WORLD_W * 0.001,
-            velocity_y: WORLD_H * 0.001,
+            velocity_x: speed * angle.cos(),
+            velocity_y: speed * angle.sin(),
         }
     }
 }

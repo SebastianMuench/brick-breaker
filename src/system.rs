@@ -190,10 +190,11 @@ pub fn handle_power_up_collision(game: &mut Game) {
                     // Keep the expanded paddle inside the world.  If it is against the
                     // right edge, simply increasing its width would grow entirely
                     // off-screen and make the pickup appear to have no effect.
-                    let center_x = game.player.x + game.player.width / 2.0;
-                    game.player.width = (game.player.width * 1.5).min(WORLD_W);
-                    game.player.x = (center_x - game.player.width / 2.0)
-                        .clamp(0.0, WORLD_W - game.player.width);
+                    // let center_x = game.player.x + game.player.width / 2.0;
+                    // game.player.width = (game.player.width * 1.5).min(WORLD_W);
+                    // game.player.x = (center_x - game.player.width / 2.0)
+                    //     .clamp(0.0, WORLD_W - game.player.width);
+                    game.player.expanded_until.push(get_time() + 30.0);
                 }
             }
         }
@@ -231,5 +232,5 @@ pub fn update_ball_previous_position(game: &mut Game) {
 
 // we need to do this in order to make sure the player is displayed correctly even after a resize
 pub fn update_player_position(game: &mut Game) {
-    game.player.y = WORLD_H * 0.9;
+    game.player.y = WORLD_H * 0.95;
 }
