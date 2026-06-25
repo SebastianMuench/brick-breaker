@@ -17,9 +17,9 @@ impl Paddle {
         Paddle {
             x: WORLD_W / 2.0,
             y: WORLD_H * 0.9,
-            width: WORLD_W * 0.1,
-            height: WORLD_H * 0.03,
-            base_width: WORLD_W * 0.1,
+            width: WORLD_W * 0.15,
+            height: WORLD_H * 0.05,
+            base_width: WORLD_W * 0.15,
             expanded_until: Vec::new(),
         }
     }
