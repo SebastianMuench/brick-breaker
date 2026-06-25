@@ -22,7 +22,9 @@ use macroquad::{
 pub struct Game {
     pub player: Paddle,
     pub paddle_texture: Texture2D,
+    pub block_texture: Texture2D,
     pub balls: Vec<Ball>,
+    pub ball_texture: Texture2D,
     pub blocks: [[Block; BLOCKS_W]; BLOCKS_H],
     pub state: GameState,
     pub next_speed_increase_time: f64,
@@ -34,15 +36,21 @@ fn new_blocks() -> [[Block; BLOCKS_W]; BLOCKS_H] {
 }
 
 impl Game {
-    pub fn new(paddle_texture: Texture2D) -> Self {
+    pub fn new(
+        paddle_texture: Texture2D,
+        block_texture: Texture2D,
+        ball_texture: Texture2D,
+    ) -> Self {
         Game {
             player: Paddle::new(),
             paddle_texture,
             balls: vec![Ball::new()],
+            ball_texture,
             // creating a 2d array of block
             // the inner array creates BLOCKS_W times a boolean true and the outer array then creates
             // BLOCKS_H * that 10 boolean array
             blocks: new_blocks(),
+            block_texture,
             state: StartScreen,
             next_speed_increase_time: get_time() + 10.0,
             falling_power_ups: Vec::new(),

@@ -20,8 +20,10 @@ const SPEED_MULTIPLYER: f32 = 1.1;
 #[macroquad::main("Seppong")]
 async fn main() {
     let paddle_texture = load_texture("assets/yachter.png").await.unwrap();
+    let block_texture = load_texture("assets/block.png").await.unwrap();
+    let ball_texture = load_texture("assets/bottle-cap.png").await.unwrap();
 
-    let mut game = Game::new(paddle_texture);
+    let mut game = Game::new(paddle_texture, block_texture, ball_texture);
 
     loop {
         clear_background(BLACK);

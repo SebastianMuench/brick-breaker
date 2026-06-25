@@ -56,6 +56,16 @@ pub fn draw_game(game: &Game) {
 
     for ball in game.balls.iter() {
         draw_circle(ball.x, ball.y, ball.radius, WHITE);
+        draw_texture_ex(
+            &game.ball_texture,
+            ball.x - ball.radius,
+            ball.y - ball.radius,
+            WHITE,
+            DrawTextureParams {
+                dest_size: Some(Vec2::new(ball.radius * 2.0, ball.radius * 2.0)),
+                ..Default::default()
+            },
+        );
     }
 
     for (j, row) in game.blocks.iter().enumerate().take(BLOCKS_H) {
@@ -63,12 +73,16 @@ pub fn draw_game(game: &Game) {
             if block.active {
                 let block_width = WORLD_W / BLOCKS_W as f32;
                 let block_height = WORLD_H / (2.0 * BLOCKS_H as f32);
-                draw_rectangle(
-                    i as f32 * block_width + 0.25,
-                    j as f32 * block_height + 0.25,
-                    block_width - 0.5,
-                    block_height - 0.5,
+
+                draw_texture_ex(
+                    &game.block_texture,
+                    i as f32 * block_width,
+                    j as f32 * block_height,
                     WHITE,
+                    DrawTextureParams {
+                        dest_size: Some(Vec2::new(block_width, block_height)),
+                        ..Default::default()
+                    },
                 );
             }
         }
