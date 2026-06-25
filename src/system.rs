@@ -156,30 +156,33 @@ pub fn handle_top_collision(game: &mut Game) {
 }
 
 pub fn handle_paddle_collision(game: &mut Game) {
+    let paddle_hitbox = game.player.hitbox();
+
     for ball in game.balls.iter_mut() {
-        // check if the ball overlaps with the paddle area
-        if ball.y + ball.radius >= game.player.y
-            && ball.y - ball.radius <= game.player.y + game.player.height
-            && ball.x >= game.player.x
-            && ball.x <= game.player.x + game.player.width
+        if ball.y + ball.radius >= paddle_hitbox.y
+            && ball.y - ball.radius <= paddle_hitbox.y + paddle_hitbox.height
+            && ball.x >= paddle_hitbox.x
+            && ball.x <= paddle_hitbox.x + paddle_hitbox.width
         {
             // only bounce if the ball is moving down to prevent it from getting stuck inside the paddle
             if ball.velocity_y > 0.0 {
                 ball.velocity_y = -ball.velocity_y;
-                // push the ball back up to the top surface of the paddle
-                ball.y = game.player.y - ball.radius;
+                // push the ball back up to the visible top surface of the paddle
+                ball.y = paddle_hitbox.y - ball.radius;
             }
         }
     }
 }
 
 pub fn handle_power_up_collision(game: &mut Game) {
+    let paddle_hitbox = game.player.hitbox();
+
     game.falling_power_ups.retain(|power_up| {
         //player collision
-        let collides = power_up.y + power_up.height >= game.player.y
-            && power_up.y <= game.player.y + game.player.height
-            && power_up.x + power_up.width >= game.player.x
-            && power_up.x <= game.player.x + game.player.width;
+        let collides = power_up.y + power_up.height >= paddle_hitbox.y
+            && power_up.y <= paddle_hitbox.y + paddle_hitbox.height
+            && power_up.x + power_up.width >= paddle_hitbox.x
+            && power_up.x <= paddle_hitbox.x + paddle_hitbox.width;
 
         if collides {
             match power_up.power_up {

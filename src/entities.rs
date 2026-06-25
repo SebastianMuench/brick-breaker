@@ -2,6 +2,13 @@ use macroquad::{rand, time::get_time};
 
 use crate::{WORLD_H, WORLD_W};
 
+const PADDLE_TEXTURE_W: f32 = 2106.0;
+const PADDLE_TEXTURE_H: f32 = 747.0;
+const PADDLE_VISIBLE_X: f32 = 84.0;
+const PADDLE_VISIBLE_Y: f32 = 112.0;
+const PADDLE_VISIBLE_W: f32 = 1961.0;
+const PADDLE_VISIBLE_H: f32 = 514.0;
+
 #[derive(Clone)]
 pub struct Paddle {
     pub x: f32,
@@ -10,6 +17,14 @@ pub struct Paddle {
     pub height: f32,
     pub base_width: f32,
     pub expanded_until: Vec<f64>,
+}
+
+#[derive(Copy, Clone)]
+pub struct Rect {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
 }
 
 impl Paddle {
@@ -27,6 +42,15 @@ impl Paddle {
     pub fn apply_size_increases(&mut self) {
         self.expanded_until.retain(|&time| time > get_time());
         self.width = self.base_width * (1.0 + 0.5 * self.expanded_until.len() as f32);
+    }
+
+    pub fn hitbox(&self) -> Rect {
+        Rect {
+            x: self.x + self.width * (PADDLE_VISIBLE_X / PADDLE_TEXTURE_W),
+            y: self.y + self.height * (PADDLE_VISIBLE_Y / PADDLE_TEXTURE_H),
+            width: self.width * (PADDLE_VISIBLE_W / PADDLE_TEXTURE_W),
+            height: self.height * (PADDLE_VISIBLE_H / PADDLE_TEXTURE_H),
+        }
     }
 }
 
