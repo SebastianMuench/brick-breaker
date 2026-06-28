@@ -1,10 +1,14 @@
 use crate::{
-    BLOCKS_H, BLOCKS_W, WORLD_H, WORLD_W,
+    BLOCKS_H, BLOCKS_W, PADDLE_MOVE_DELTA, WORLD_H, WORLD_W,
     entities::{Ball, BlockCoordinates, FallingPowerUp, PowerUp},
     game::Game,
     state::GameState,
 };
 use macroquad::prelude::*;
+
+const PADDLE_ENGLISH_STRENGTH: f32 = 0.45;
+const MAX_HORIZONTAL_BOUNCE_RATIO: f32 = 0.85;
+const PADDLE_STILL_EPSILON: f32 = 0.01;
 
 pub fn toggle_game(game: &mut Game) {
     if is_key_pressed(KeyCode::P) {
@@ -169,6 +173,31 @@ pub fn handle_top_collision(game: &mut Game) {
     }
 }
 
+fn calculate_paddle_bounce_velocity(
+    ball_velocity_x: f32,
+    ball_velocity_y: f32,
+    paddle_velocity_x: f32,
+) -> (f32, f32) {
+    if paddle_velocity_x.abs() < PADDLE_STILL_EPSILON {
+        return (ball_velocity_x, -ball_velocity_y);
+    }
+
+    let speed = ball_velocity_x.hypot(ball_velocity_y);
+    if speed == 0.0 {
+        return (0.0, 0.0);
+    }
+
+    let paddle_motion = (paddle_velocity_x / PADDLE_MOVE_DELTA).clamp(-1.0, 1.0);
+    let max_horizontal_velocity = speed * MAX_HORIZONTAL_BOUNCE_RATIO;
+    let new_velocity_x = (ball_velocity_x + paddle_motion * speed * PADDLE_ENGLISH_STRENGTH)
+        .clamp(-max_horizontal_velocity, max_horizontal_velocity);
+    let new_velocity_y = -((speed * speed - new_velocity_x * new_velocity_x)
+        .max(0.0)
+        .sqrt());
+
+    (new_velocity_x, new_velocity_y)
+}
+
 pub fn handle_paddle_collision(game: &mut Game) {
     let paddle_hitbox = game.player.hitbox();
 
@@ -180,7 +209,11 @@ pub fn handle_paddle_collision(game: &mut Game) {
         {
             // only bounce if the ball is moving down to prevent it from getting stuck inside the paddle
             if ball.velocity_y > 0.0 {
-                ball.velocity_y = -ball.velocity_y;
+                (ball.velocity_x, ball.velocity_y) = calculate_paddle_bounce_velocity(
+                    ball.velocity_x,
+                    ball.velocity_y,
+                    game.player.velocity_x,
+                );
                 // push the ball back up to the visible top surface of the paddle
                 ball.y = paddle_hitbox.y - ball.radius;
             }
@@ -250,4 +283,68 @@ pub fn update_ball_previous_position(game: &mut Game) {
 // we need to do this in order to make sure the player is displayed correctly even after a resize
 pub fn update_player_position(game: &mut Game) {
     game.player.y = WORLD_H * 0.95;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const EPSILON: f32 = 0.0001;
+
+    fn assert_approx_eq(actual: f32, expected: f32) {
+        assert!(
+            (actual - expected).abs() < EPSILON,
+            "expected {actual} to be close to {expected}",
+        );
+    }
+
+    fn speed(velocity_x: f32, velocity_y: f32) -> f32 {
+        velocity_x.hypot(velocity_y)
+    }
+
+    #[test]
+    fn still_paddle_keeps_existing_bounce_behavior() {
+        let (velocity_x, velocity_y) = calculate_paddle_bounce_velocity(0.2, 0.6, 0.0);
+
+        assert_approx_eq(velocity_x, 0.2);
+        assert_approx_eq(velocity_y, -0.6);
+    }
+
+    #[test]
+    fn moving_right_adds_rightward_ball_velocity() {
+        let (velocity_x, velocity_y) =
+            calculate_paddle_bounce_velocity(0.0, 1.0, PADDLE_MOVE_DELTA);
+
+        assert!(velocity_x > 0.0);
+        assert!(velocity_y < 0.0);
+    }
+
+    #[test]
+    fn moving_left_adds_leftward_ball_velocity() {
+        let (velocity_x, velocity_y) =
+            calculate_paddle_bounce_velocity(0.2, 1.0, -PADDLE_MOVE_DELTA);
+
+        assert!(velocity_x < 0.2);
+        assert!(velocity_y < 0.0);
+    }
+
+    #[test]
+    fn moving_paddle_preserves_total_ball_speed() {
+        let before = speed(0.3, 0.8);
+        let (velocity_x, velocity_y) =
+            calculate_paddle_bounce_velocity(0.3, 0.8, PADDLE_MOVE_DELTA);
+        let after = speed(velocity_x, velocity_y);
+
+        assert_approx_eq(after, before);
+    }
+
+    #[test]
+    fn horizontal_velocity_is_clamped() {
+        let speed = speed(0.8, 0.6);
+        let (velocity_x, velocity_y) =
+            calculate_paddle_bounce_velocity(0.8, 0.6, PADDLE_MOVE_DELTA);
+
+        assert_approx_eq(velocity_x, speed * MAX_HORIZONTAL_BOUNCE_RATIO);
+        assert!(velocity_y < 0.0);
+    }
 }

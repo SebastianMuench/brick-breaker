@@ -14,6 +14,7 @@ pub const BLOCKS_H: usize = 10;
 // we'll use this to scale the entire game
 pub const WORLD_W: f32 = 500.0;
 pub const WORLD_H: f32 = 500.0;
+pub const PADDLE_MOVE_DELTA: f32 = WORLD_W * 0.01;
 
 const SPEED_MULTIPLYER: f32 = 1.1;
 

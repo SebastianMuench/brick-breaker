@@ -16,6 +16,7 @@ pub struct Paddle {
     pub width: f32,
     pub height: f32,
     pub base_width: f32,
+    pub velocity_x: f32,
     pub expanded_until: Vec<f64>,
 }
 
@@ -35,6 +36,7 @@ impl Paddle {
             width: WORLD_W * 0.15,
             height: WORLD_H * 0.05,
             base_width: WORLD_W * 0.15,
+            velocity_x: 0.0,
             expanded_until: Vec::new(),
         }
     }

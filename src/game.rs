@@ -1,5 +1,5 @@
 use crate::{
-    BLOCKS_H, BLOCKS_W, SPEED_MULTIPLYER, WORLD_W,
+    BLOCKS_H, BLOCKS_W, PADDLE_MOVE_DELTA, SPEED_MULTIPLYER, WORLD_W,
     draw::{draw_game, draw_game_over, draw_game_won, draw_pause, draw_start, set_game_camera},
     entities::{Ball, Block, FallingPowerUp, Paddle},
     state::GameState::{self, StartScreen},
@@ -162,23 +162,25 @@ impl Game {
     }
 
     fn handle_input(&mut self) {
-        const DELTA: f32 = WORLD_W * 0.01;
+        let previous_x = self.player.x;
 
         if is_key_down(KeyCode::Left) {
-            if self.player.x - DELTA < 0.0 {
+            if self.player.x - PADDLE_MOVE_DELTA < 0.0 {
                 self.player.x = 0.0;
             } else {
-                self.player.x -= DELTA;
+                self.player.x -= PADDLE_MOVE_DELTA;
             }
         }
 
         if is_key_down(KeyCode::Right) {
-            if self.player.x + self.player.width + DELTA > WORLD_W {
+            if self.player.x + self.player.width + PADDLE_MOVE_DELTA > WORLD_W {
                 self.player.x = WORLD_W - self.player.width;
             } else {
-                self.player.x += DELTA;
+                self.player.x += PADDLE_MOVE_DELTA;
             }
         }
+
+        self.player.velocity_x = self.player.x - previous_x;
     }
 
     pub fn draw_playing(&self) {
