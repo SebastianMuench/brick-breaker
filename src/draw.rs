@@ -1,6 +1,6 @@
 use macroquad::{
     camera::{Camera2D, set_camera},
-    color::{BLUE, Color, WHITE},
+    color::{Color, WHITE},
     math::{Vec2, vec2},
     shapes::{draw_circle, draw_rectangle},
     text::{draw_text, measure_text},
@@ -8,7 +8,7 @@ use macroquad::{
     window::{screen_height, screen_width},
 };
 
-use crate::{BLOCKS_H, BLOCKS_W, WORLD_H, WORLD_W, game::Game};
+use crate::{BLOCKS_H, BLOCKS_W, WORLD_H, WORLD_W, entities::PowerUp, game::Game};
 
 fn draw_centered_text(text: &str, font_size: u16, color: Color) {
     // Optional: draw a semi-transparent background overlay to make the text pop
@@ -90,13 +90,32 @@ pub fn draw_game(game: &Game) {
 
     // falling power ups
     for power_up in game.falling_power_ups.iter() {
-        draw_rectangle(
-            power_up.x,
-            power_up.y,
-            power_up.width,
-            power_up.height,
-            BLUE,
-        );
+        match power_up.power_up {
+            PowerUp::ExtraBall => {
+                draw_texture_ex(
+                    &game.extra_ball_texture,
+                    power_up.x,
+                    power_up.y,
+                    WHITE,
+                    DrawTextureParams {
+                        dest_size: Some(Vec2::new(power_up.width, power_up.height)),
+                        ..Default::default()
+                    },
+                );
+            }
+            PowerUp::PaddleExpand => {
+                draw_texture_ex(
+                    &game.paddle_expand_texture,
+                    power_up.x,
+                    power_up.y,
+                    WHITE,
+                    DrawTextureParams {
+                        dest_size: Some(Vec2::new(power_up.width, power_up.height)),
+                        ..Default::default()
+                    },
+                );
+            }
+        }
     }
 }
 

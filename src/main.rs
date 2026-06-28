@@ -22,8 +22,16 @@ async fn main() {
     let paddle_texture = load_texture("assets/yachter.png").await.unwrap();
     let block_texture = load_texture("assets/block.png").await.unwrap();
     let ball_texture = load_texture("assets/bottle-cap.png").await.unwrap();
+    let holy_texture = load_texture("assets/holy-energy.png").await.unwrap();
+    let monster_texture = load_texture("assets/monster.png").await.unwrap();
 
-    let mut game = Game::new(paddle_texture, block_texture, ball_texture);
+    let mut game = Game::new(
+        paddle_texture,
+        block_texture,
+        ball_texture,
+        holy_texture,
+        monster_texture,
+    );
 
     loop {
         clear_background(BLACK);

@@ -29,6 +29,8 @@ pub struct Game {
     pub state: GameState,
     pub next_speed_increase_time: f64,
     pub falling_power_ups: Vec<FallingPowerUp>,
+    pub extra_ball_texture: Texture2D,
+    pub paddle_expand_texture: Texture2D,
 }
 
 fn new_blocks() -> [[Block; BLOCKS_W]; BLOCKS_H] {
@@ -40,6 +42,8 @@ impl Game {
         paddle_texture: Texture2D,
         block_texture: Texture2D,
         ball_texture: Texture2D,
+        extra_ball_texture: Texture2D,
+        paddle_expand_texture: Texture2D,
     ) -> Self {
         Game {
             player: Paddle::new(),
@@ -54,6 +58,8 @@ impl Game {
             state: StartScreen,
             next_speed_increase_time: get_time() + 10.0,
             falling_power_ups: Vec::new(),
+            extra_ball_texture,
+            paddle_expand_texture,
         }
     }
 

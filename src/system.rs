@@ -1,6 +1,6 @@
 use crate::{
     BLOCKS_H, BLOCKS_W, WORLD_H, WORLD_W,
-    entities::{Ball, BlockCoordinates, FallingPowerUp},
+    entities::{Ball, BlockCoordinates, FallingPowerUp, PowerUp},
     game::Game,
     state::GameState,
 };
@@ -65,14 +65,28 @@ pub fn handle_block_collision(game: &mut Game) {
                         block.active = false;
                         let power_up = block.power_up;
                         if let Some(power_up) = power_up {
-                            game.falling_power_ups.push(FallingPowerUp {
-                                x: block_rect.x + block_rect.width / 2.0,
-                                y: block_rect.y + block_rect.height / 2.0,
-                                width: block_rect.width * 0.8,
-                                height: block_rect.height * 0.8,
-                                power_up,
-                                velocity_y: WORLD_H * 0.002,
-                            });
+                            match power_up {
+                                PowerUp::ExtraBall => {
+                                    game.falling_power_ups.push(FallingPowerUp {
+                                        x: block_rect.x + block_rect.width / 2.0,
+                                        y: block_rect.y + block_rect.height / 2.0,
+                                        width: block_rect.width * 0.8,
+                                        height: block_rect.height * 1.4,
+                                        power_up,
+                                        velocity_y: WORLD_H * 0.002,
+                                    });
+                                }
+                                PowerUp::PaddleExpand => {
+                                    game.falling_power_ups.push(FallingPowerUp {
+                                        x: block_rect.x + block_rect.width / 2.0,
+                                        y: block_rect.y + block_rect.height / 2.0,
+                                        width: block_rect.width * 1.0,
+                                        height: block_rect.height * 2.4,
+                                        power_up,
+                                        velocity_y: WORLD_H * 0.002,
+                                    });
+                                }
+                            }
                         }
 
                         // find the point on the block that is closest to the ball center
