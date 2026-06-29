@@ -71,7 +71,7 @@ impl Ball {
     pub fn new() -> Self {
         // we're randomizing the velocity so balls do not move in the exact same
         // direction every time, which is kinda lame
-        let speed = ((WORLD_W * 0.001).powi(2) + (WORLD_H * 0.001).powi(2)).sqrt();
+        let speed = ((WORLD_W * 0.0015).powi(2) + (WORLD_H * 0.0015).powi(2)).sqrt();
         let angle = rand::gen_range(0.35, std::f32::consts::PI - 0.35);
 
         Ball {
