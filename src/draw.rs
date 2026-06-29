@@ -47,20 +47,23 @@ pub fn draw_game(game: &Game) {
     let color = get_color(game);
 
     draw_texture_ex(
-        &game.paddle_texture,
-        game.player.x,
-        game.player.y,
+        &game.textures.paddle,
+        game.entities.player.x,
+        game.entities.player.y,
         color,
         DrawTextureParams {
-            dest_size: Some(Vec2::new(game.player.width, game.player.height)),
+            dest_size: Some(Vec2::new(
+                game.entities.player.width,
+                game.entities.player.height,
+            )),
             ..Default::default()
         },
     );
 
-    for ball in game.balls.iter() {
+    for ball in game.entities.balls.iter() {
         draw_circle(ball.x, ball.y, ball.radius, color);
         draw_texture_ex(
-            &game.ball_texture,
+            &game.textures.ball,
             ball.x - ball.radius,
             ball.y - ball.radius,
             color,
@@ -71,14 +74,14 @@ pub fn draw_game(game: &Game) {
         );
     }
 
-    for (j, row) in game.blocks.iter().enumerate().take(BLOCKS_H) {
+    for (j, row) in game.entities.blocks.iter().enumerate().take(BLOCKS_H) {
         for (i, block) in row.iter().enumerate().take(BLOCKS_W) {
             if block.active {
                 let block_width = WORLD_W / BLOCKS_W as f32;
                 let block_height = WORLD_H / (2.0 * BLOCKS_H as f32);
 
                 draw_texture_ex(
-                    &game.block_texture,
+                    &game.textures.block,
                     i as f32 * block_width,
                     j as f32 * block_height,
                     color,
@@ -92,11 +95,11 @@ pub fn draw_game(game: &Game) {
     }
 
     // falling power ups
-    for power_up in game.falling_power_ups.iter() {
+    for power_up in game.entities.falling_power_ups.iter() {
         match power_up.power_up {
             PowerUp::ExtraBall => {
                 draw_texture_ex(
-                    &game.extra_ball_texture,
+                    &game.textures.extra_ball_power_up,
                     power_up.x,
                     power_up.y,
                     color,
@@ -108,7 +111,7 @@ pub fn draw_game(game: &Game) {
             }
             PowerUp::PaddleExpand => {
                 draw_texture_ex(
-                    &game.paddle_expand_texture,
+                    &game.textures.paddle_expand_power_up,
                     power_up.x,
                     power_up.y,
                     color,
@@ -120,7 +123,7 @@ pub fn draw_game(game: &Game) {
             }
             PowerUp::RainbowMode => {
                 draw_texture_ex(
-                    &game.rainbow_mode_texture,
+                    &game.textures.rainbow_mode_power_up,
                     power_up.x,
                     power_up.y,
                     color,
@@ -143,7 +146,7 @@ pub fn set_game_camera() {
 }
 
 fn get_color(game: &Game) -> Color {
-    if game.rainbow_mode_end_time > 0.0 {
+    if game.timers.rainbow_mode_end_time > 0.0 {
         let t = get_time() as f32;
         Color::new(
             (t * 2.0).sin() * 0.5 + 0.5,

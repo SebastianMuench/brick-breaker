@@ -1,6 +1,6 @@
 use macroquad::prelude::*;
 
-use crate::game::Game;
+use crate::game::{Game, GameTextures};
 
 mod draw;
 mod entities;
@@ -29,7 +29,7 @@ async fn main() {
         .await
         .unwrap();
 
-    let mut game = Game::new(
+    let textures = GameTextures::new(
         paddle_texture,
         block_texture,
         ball_texture,
@@ -37,6 +37,7 @@ async fn main() {
         paddle_expand_texture,
         rainbow_mode_texture,
     );
+    let mut game = Game::new(textures);
 
     loop {
         clear_background(BLACK);

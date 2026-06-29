@@ -20,65 +20,97 @@ use macroquad::{
 };
 
 #[derive(Clone)]
-pub struct Game {
+pub struct GameEntities {
     pub player: Paddle,
-    pub paddle_texture: Texture2D,
-    pub block_texture: Texture2D,
     pub balls: Vec<Ball>,
-    pub ball_texture: Texture2D,
     pub blocks: [[Block; BLOCKS_W]; BLOCKS_H],
-    pub state: GameState,
-    pub next_speed_increase_time: f64,
     pub falling_power_ups: Vec<FallingPowerUp>,
-    pub extra_ball_texture: Texture2D,
-    pub paddle_expand_texture: Texture2D,
-    pub rainbow_mode_end_time: f64,
-    pub rainbow_mode_texture: Texture2D,
 }
 
 fn new_blocks() -> [[Block; BLOCKS_W]; BLOCKS_H] {
     std::array::from_fn(|_| std::array::from_fn(|_| Block::new()))
 }
 
-impl Game {
-    pub fn new(
-        paddle_texture: Texture2D,
-        block_texture: Texture2D,
-        ball_texture: Texture2D,
-        extra_ball_texture: Texture2D,
-        paddle_expand_texture: Texture2D,
-        rainbow_mode_texture: Texture2D,
-    ) -> Self {
-        Game {
+impl GameEntities {
+    fn new() -> Self {
+        GameEntities {
             player: Paddle::new(),
-            paddle_texture,
             balls: vec![Ball::new()],
-            ball_texture,
-            // creating a 2d array of block
-            // the inner array creates BLOCKS_W times a boolean true and the outer array then creates
-            // BLOCKS_H * that 10 boolean array
             blocks: new_blocks(),
-            block_texture,
-            state: StartScreen,
-            next_speed_increase_time: get_time() + 10.0,
             falling_power_ups: Vec::new(),
-            extra_ball_texture,
-            paddle_expand_texture,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct GameTextures {
+    pub paddle: Texture2D,
+    pub block: Texture2D,
+    pub ball: Texture2D,
+    pub extra_ball_power_up: Texture2D,
+    pub paddle_expand_power_up: Texture2D,
+    pub rainbow_mode_power_up: Texture2D,
+}
+
+impl GameTextures {
+    pub fn new(
+        paddle: Texture2D,
+        block: Texture2D,
+        ball: Texture2D,
+        extra_ball_power_up: Texture2D,
+        paddle_expand_power_up: Texture2D,
+        rainbow_mode_power_up: Texture2D,
+    ) -> Self {
+        GameTextures {
+            paddle,
+            block,
+            ball,
+            extra_ball_power_up,
+            paddle_expand_power_up,
+            rainbow_mode_power_up,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct GameTimers {
+    pub next_speed_increase_time: f64,
+    pub rainbow_mode_end_time: f64,
+}
+
+impl GameTimers {
+    fn new() -> Self {
+        GameTimers {
+            next_speed_increase_time: get_time() + 10.0,
             rainbow_mode_end_time: 0.0,
-            rainbow_mode_texture,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct Game {
+    pub entities: GameEntities,
+    pub textures: GameTextures,
+    pub state: GameState,
+    pub timers: GameTimers,
+}
+
+impl Game {
+    pub fn new(textures: GameTextures) -> Self {
+        Game {
+            entities: GameEntities::new(),
+            textures,
+            state: StartScreen,
+            timers: GameTimers::new(),
         }
     }
 
     fn reset(&mut self) {
         // we need to reset all fields except the textures to default in order to avoid reloading the
         // textures everytime we want to restart the game
-        self.player = Paddle::new();
-        self.balls = vec![Ball::new()];
-        self.blocks = new_blocks();
-        self.falling_power_ups.clear();
+        self.entities = GameEntities::new();
         self.state = GameState::Playing;
-        self.next_speed_increase_time = get_time() + 10.0;
-        self.rainbow_mode_end_time = 0.0;
+        self.timers = GameTimers::new();
     }
 
     pub fn update(&mut self) {
@@ -143,7 +175,7 @@ impl Game {
     }
 
     pub fn update_game_state(&mut self) {
-        if game_lost(&self.balls) {
+        if game_lost(&self.entities.balls) {
             self.state = GameState::GameOver;
         } else if game_won(self) {
             self.state = GameState::GameWon;
@@ -162,7 +194,7 @@ impl Game {
         update_rainbow_mode(self);
         update_player_position(self);
         update_falling_power_ups_position(self);
-        self.player.apply_size_increases();
+        self.entities.player.apply_size_increases();
         update_ball_previous_position(self);
         update_ball_position(self);
         check_ball_out_of_bounds(self);
@@ -170,25 +202,26 @@ impl Game {
     }
 
     fn handle_input(&mut self) {
-        let previous_x = self.player.x;
+        let player = &mut self.entities.player;
+        let previous_x = player.x;
 
         if is_key_down(KeyCode::Left) {
-            if self.player.x - PADDLE_MOVE_DELTA < 0.0 {
-                self.player.x = 0.0;
+            if player.x - PADDLE_MOVE_DELTA < 0.0 {
+                player.x = 0.0;
             } else {
-                self.player.x -= PADDLE_MOVE_DELTA;
+                player.x -= PADDLE_MOVE_DELTA;
             }
         }
 
         if is_key_down(KeyCode::Right) {
-            if self.player.x + self.player.width + PADDLE_MOVE_DELTA > WORLD_W {
-                self.player.x = WORLD_W - self.player.width;
+            if player.x + player.width + PADDLE_MOVE_DELTA > WORLD_W {
+                player.x = WORLD_W - player.width;
             } else {
-                self.player.x += PADDLE_MOVE_DELTA;
+                player.x += PADDLE_MOVE_DELTA;
             }
         }
 
-        self.player.velocity_x = self.player.x - previous_x;
+        player.velocity_x = player.x - previous_x;
     }
 
     pub fn draw_playing(&self) {

@@ -15,7 +15,7 @@ pub fn toggle_game(game: &mut Game) {
         game.state = match game.state {
             GameState::Playing => GameState::Pause,
             GameState::Pause => {
-                game.next_speed_increase_time = get_time() + 10.0;
+                game.timers.next_speed_increase_time = get_time() + 10.0;
                 GameState::Playing
             }
             s => s,
@@ -25,9 +25,9 @@ pub fn toggle_game(game: &mut Game) {
 
 pub fn increase_speed(game: &mut Game, speed_multiplier: f32) {
     // every 10 seconds, increase the speed of the ball by 10%
-    if get_time() > game.next_speed_increase_time {
-        game.next_speed_increase_time = get_time() + 10.0;
-        for ball in game.balls.iter_mut() {
+    if get_time() > game.timers.next_speed_increase_time {
+        game.timers.next_speed_increase_time = get_time() + 10.0;
+        for ball in game.entities.balls.iter_mut() {
             ball.velocity_x *= speed_multiplier;
             ball.velocity_y *= speed_multiplier;
         }
@@ -36,7 +36,7 @@ pub fn increase_speed(game: &mut Game, speed_multiplier: f32) {
 
 pub fn game_won(game: &Game) -> bool {
     // if all blocks are false, we won
-    for row in game.blocks.iter().take(BLOCKS_H) {
+    for row in game.entities.blocks.iter().take(BLOCKS_H) {
         for block in row.iter().take(BLOCKS_W) {
             if block.active {
                 return false;
@@ -58,9 +58,12 @@ pub fn game_lost(balls: &[Ball]) -> bool {
 
 pub fn handle_block_collision(game: &mut Game) {
     let mut collision_occurred = false;
+    let balls = &mut game.entities.balls;
+    let blocks = &mut game.entities.blocks;
+    let falling_power_ups = &mut game.entities.falling_power_ups;
 
-    for ball in game.balls.iter_mut() {
-        for (j, row) in game.blocks.iter_mut().enumerate() {
+    for ball in balls.iter_mut() {
+        for (j, row) in blocks.iter_mut().enumerate() {
             for (i, block) in row.iter_mut().enumerate() {
                 if block.active && !collision_occurred {
                     let block_rect: BlockCoordinates = calculate_block_rect(i, j);
@@ -71,7 +74,7 @@ pub fn handle_block_collision(game: &mut Game) {
                         if let Some(power_up) = power_up {
                             match power_up {
                                 PowerUp::ExtraBall => {
-                                    game.falling_power_ups.push(FallingPowerUp {
+                                    falling_power_ups.push(FallingPowerUp {
                                         x: block_rect.x + block_rect.width / 2.0,
                                         y: block_rect.y + block_rect.height / 2.0,
                                         width: block_rect.width * 0.8,
@@ -81,7 +84,7 @@ pub fn handle_block_collision(game: &mut Game) {
                                     });
                                 }
                                 PowerUp::PaddleExpand => {
-                                    game.falling_power_ups.push(FallingPowerUp {
+                                    falling_power_ups.push(FallingPowerUp {
                                         x: block_rect.x + block_rect.width / 2.0,
                                         y: block_rect.y + block_rect.height / 2.0,
                                         width: block_rect.width * 1.0,
@@ -91,7 +94,7 @@ pub fn handle_block_collision(game: &mut Game) {
                                     });
                                 }
                                 PowerUp::RainbowMode => {
-                                    game.falling_power_ups.push(FallingPowerUp {
+                                    falling_power_ups.push(FallingPowerUp {
                                         x: block_rect.x + block_rect.width / 2.0,
                                         y: block_rect.y + block_rect.height / 2.0,
                                         width: block_rect.width * 1.0,
@@ -163,7 +166,7 @@ pub fn block_collides(ball: &Ball, block: &BlockCoordinates) -> bool {
 }
 
 pub fn handle_site_collision(game: &mut Game) {
-    for ball in game.balls.iter_mut() {
+    for ball in game.entities.balls.iter_mut() {
         if ball.x - ball.radius <= 0.0 {
             ball.velocity_x = ball.velocity_x.abs();
             ball.x = ball.radius;
@@ -175,7 +178,7 @@ pub fn handle_site_collision(game: &mut Game) {
 }
 
 pub fn handle_top_collision(game: &mut Game) {
-    for ball in game.balls.iter_mut() {
+    for ball in game.entities.balls.iter_mut() {
         if ball.y - ball.radius <= 0.0 {
             ball.velocity_y = ball.velocity_y.abs();
             ball.y = ball.radius;
@@ -209,9 +212,10 @@ fn calculate_paddle_bounce_velocity(
 }
 
 pub fn handle_paddle_collision(game: &mut Game) {
-    let paddle_hitbox = game.player.hitbox();
+    let paddle_hitbox = game.entities.player.hitbox();
+    let paddle_velocity_x = game.entities.player.velocity_x;
 
-    for ball in game.balls.iter_mut() {
+    for ball in game.entities.balls.iter_mut() {
         if ball.y + ball.radius >= paddle_hitbox.y
             && ball.y - ball.radius <= paddle_hitbox.y + paddle_hitbox.height
             && ball.x >= paddle_hitbox.x
@@ -222,7 +226,7 @@ pub fn handle_paddle_collision(game: &mut Game) {
                 (ball.velocity_x, ball.velocity_y) = calculate_paddle_bounce_velocity(
                     ball.velocity_x,
                     ball.velocity_y,
-                    game.player.velocity_x,
+                    paddle_velocity_x,
                 );
                 // push the ball back up to the visible top surface of the paddle
                 ball.y = paddle_hitbox.y - ball.radius;
@@ -232,9 +236,13 @@ pub fn handle_paddle_collision(game: &mut Game) {
 }
 
 pub fn handle_power_up_collision(game: &mut Game) {
-    let paddle_hitbox = game.player.hitbox();
+    let player = &mut game.entities.player;
+    let balls = &mut game.entities.balls;
+    let falling_power_ups = &mut game.entities.falling_power_ups;
+    let rainbow_mode_end_time = &mut game.timers.rainbow_mode_end_time;
+    let paddle_hitbox = player.hitbox();
 
-    game.falling_power_ups.retain(|power_up| {
+    falling_power_ups.retain(|power_up| {
         //player collision
         let collides = power_up.y + power_up.height >= paddle_hitbox.y
             && power_up.y <= paddle_hitbox.y + paddle_hitbox.height
@@ -244,22 +252,20 @@ pub fn handle_power_up_collision(game: &mut Game) {
         if collides {
             match power_up.power_up {
                 PowerUp::ExtraBall => {
-                    game.balls.push(Ball::new());
+                    balls.push(Ball::new());
                 }
                 PowerUp::PaddleExpand => {
                     // Keep the expanded paddle inside the world.  If it is against the
                     // right edge, simply increasing its width would grow entirely
                     // off-screen and make the pickup appear to have no effect.
-                    // let center_x = game.player.x + game.player.width / 2.0;
-                    // game.player.width = (game.player.width * 1.5).min(WORLD_W);
-                    // game.player.x = (center_x - game.player.width / 2.0)
-                    //     .clamp(0.0, WORLD_W - game.player.width);
-                    game.player
-                        .expand_power_up_end_times
-                        .push(get_time() + 30.0);
+                    // let center_x = player.x + player.width / 2.0;
+                    // player.width = (player.width * 1.5).min(WORLD_W);
+                    // player.x = (center_x - player.width / 2.0)
+                    //     .clamp(0.0, WORLD_W - player.width);
+                    player.expand_power_up_end_times.push(get_time() + 30.0);
                 }
                 PowerUp::RainbowMode => {
-                    game.rainbow_mode_end_time = get_time() + 30.0;
+                    *rainbow_mode_end_time = get_time() + 30.0;
                 }
             }
         }
@@ -272,38 +278,40 @@ pub fn handle_power_up_collision(game: &mut Game) {
 }
 
 pub fn check_ball_out_of_bounds(game: &mut Game) {
-    game.balls.retain(|ball| ball.y - ball.radius <= WORLD_H);
+    game.entities
+        .balls
+        .retain(|ball| ball.y - ball.radius <= WORLD_H);
 }
 
 pub fn update_ball_position(game: &mut Game) {
-    for ball in game.balls.iter_mut() {
+    for ball in game.entities.balls.iter_mut() {
         ball.x += ball.velocity_x;
         ball.y += ball.velocity_y;
     }
 }
 
 pub fn update_falling_power_ups_position(game: &mut Game) {
-    for power_up in game.falling_power_ups.iter_mut() {
+    for power_up in game.entities.falling_power_ups.iter_mut() {
         power_up.y += power_up.velocity_y;
     }
 }
 
 pub fn update_ball_previous_position(game: &mut Game) {
-    for ball in game.balls.iter_mut() {
+    for ball in game.entities.balls.iter_mut() {
         ball.prev_x = ball.x;
         ball.prev_y = ball.y;
     }
 }
 
 pub fn update_rainbow_mode(game: &mut Game) {
-    if get_time() > game.rainbow_mode_end_time {
-        game.rainbow_mode_end_time = 0.0;
+    if get_time() > game.timers.rainbow_mode_end_time {
+        game.timers.rainbow_mode_end_time = 0.0;
     }
 }
 
 // we need to do this in order to make sure the player is displayed correctly even after a resize
 pub fn update_player_position(game: &mut Game) {
-    game.player.y = WORLD_H * 0.95;
+    game.entities.player.y = WORLD_H * 0.95;
 }
 
 #[cfg(test)]
