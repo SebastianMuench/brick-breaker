@@ -8,6 +8,7 @@ use crate::{
         handle_paddle_collision, handle_power_up_collision, handle_site_collision,
         handle_top_collision, increase_speed, toggle_game, update_ball_position,
         update_ball_previous_position, update_falling_power_ups_position, update_player_position,
+        update_rainbow_mode,
     },
 };
 
@@ -31,6 +32,8 @@ pub struct Game {
     pub falling_power_ups: Vec<FallingPowerUp>,
     pub extra_ball_texture: Texture2D,
     pub paddle_expand_texture: Texture2D,
+    pub rainbow_mode_end_time: f64,
+    pub rainbow_mode_texture: Texture2D,
 }
 
 fn new_blocks() -> [[Block; BLOCKS_W]; BLOCKS_H] {
@@ -44,6 +47,7 @@ impl Game {
         ball_texture: Texture2D,
         extra_ball_texture: Texture2D,
         paddle_expand_texture: Texture2D,
+        rainbow_mode_texture: Texture2D,
     ) -> Self {
         Game {
             player: Paddle::new(),
@@ -60,6 +64,8 @@ impl Game {
             falling_power_ups: Vec::new(),
             extra_ball_texture,
             paddle_expand_texture,
+            rainbow_mode_end_time: 0.0,
+            rainbow_mode_texture,
         }
     }
 
@@ -72,6 +78,7 @@ impl Game {
         self.falling_power_ups.clear();
         self.state = GameState::Playing;
         self.next_speed_increase_time = get_time() + 10.0;
+        self.rainbow_mode_end_time = 0.0;
     }
 
     pub fn update(&mut self) {
@@ -152,6 +159,7 @@ impl Game {
     }
 
     fn update_entities(&mut self) {
+        update_rainbow_mode(self);
         update_player_position(self);
         update_falling_power_ups_position(self);
         self.player.apply_size_increases();

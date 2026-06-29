@@ -17,7 +17,7 @@ pub struct Paddle {
     pub height: f32,
     pub base_width: f32,
     pub velocity_x: f32,
-    pub expanded_until: Vec<f64>,
+    pub expand_power_up_end_times: Vec<f64>,
 }
 
 #[derive(Copy, Clone)]
@@ -32,18 +32,19 @@ impl Paddle {
     pub fn new() -> Self {
         Paddle {
             x: WORLD_W / 2.0,
-            y: WORLD_H * 0.9,
+            y: WORLD_H * 0.95,
             width: WORLD_W * 0.15,
             height: WORLD_H * 0.05,
             base_width: WORLD_W * 0.15,
             velocity_x: 0.0,
-            expanded_until: Vec::new(),
+            expand_power_up_end_times: Vec::new(),
         }
     }
 
     pub fn apply_size_increases(&mut self) {
-        self.expanded_until.retain(|&time| time > get_time());
-        self.width = self.base_width * (1.0 + 0.5 * self.expanded_until.len() as f32);
+        self.expand_power_up_end_times
+            .retain(|&time| time > get_time());
+        self.width = self.base_width * (1.0 + 0.5 * self.expand_power_up_end_times.len() as f32);
     }
 
     pub fn hitbox(&self) -> Rect {
@@ -102,6 +103,8 @@ impl Block {
                     Some(PowerUp::ExtraBall)
                 } else if random_value < 20 {
                     Some(PowerUp::PaddleExpand)
+                } else if random_value < 30 {
+                    Some(PowerUp::RainbowMode)
                 } else {
                     None
                 }
@@ -114,6 +117,7 @@ impl Block {
 pub enum PowerUp {
     ExtraBall,
     PaddleExpand,
+    RainbowMode,
 }
 
 #[derive(Clone, Copy)]

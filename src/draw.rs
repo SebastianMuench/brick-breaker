@@ -5,6 +5,7 @@ use macroquad::{
     shapes::{draw_circle, draw_rectangle},
     text::{draw_text, measure_text},
     texture::{DrawTextureParams, draw_texture_ex},
+    time::get_time,
     window::{screen_height, screen_width},
 };
 
@@ -43,11 +44,13 @@ pub fn draw_start() {
 }
 
 pub fn draw_game(game: &Game) {
+    let color = get_color(game);
+
     draw_texture_ex(
         &game.paddle_texture,
         game.player.x,
         game.player.y,
-        WHITE,
+        color,
         DrawTextureParams {
             dest_size: Some(Vec2::new(game.player.width, game.player.height)),
             ..Default::default()
@@ -55,12 +58,12 @@ pub fn draw_game(game: &Game) {
     );
 
     for ball in game.balls.iter() {
-        draw_circle(ball.x, ball.y, ball.radius, WHITE);
+        draw_circle(ball.x, ball.y, ball.radius, color);
         draw_texture_ex(
             &game.ball_texture,
             ball.x - ball.radius,
             ball.y - ball.radius,
-            WHITE,
+            color,
             DrawTextureParams {
                 dest_size: Some(Vec2::new(ball.radius * 2.0, ball.radius * 2.0)),
                 ..Default::default()
@@ -78,7 +81,7 @@ pub fn draw_game(game: &Game) {
                     &game.block_texture,
                     i as f32 * block_width,
                     j as f32 * block_height,
-                    WHITE,
+                    color,
                     DrawTextureParams {
                         dest_size: Some(Vec2::new(block_width, block_height)),
                         ..Default::default()
@@ -96,7 +99,7 @@ pub fn draw_game(game: &Game) {
                     &game.extra_ball_texture,
                     power_up.x,
                     power_up.y,
-                    WHITE,
+                    color,
                     DrawTextureParams {
                         dest_size: Some(Vec2::new(power_up.width, power_up.height)),
                         ..Default::default()
@@ -108,7 +111,19 @@ pub fn draw_game(game: &Game) {
                     &game.paddle_expand_texture,
                     power_up.x,
                     power_up.y,
-                    WHITE,
+                    color,
+                    DrawTextureParams {
+                        dest_size: Some(Vec2::new(power_up.width, power_up.height)),
+                        ..Default::default()
+                    },
+                );
+            }
+            PowerUp::RainbowMode => {
+                draw_texture_ex(
+                    &game.rainbow_mode_texture,
+                    power_up.x,
+                    power_up.y,
+                    color,
                     DrawTextureParams {
                         dest_size: Some(Vec2::new(power_up.width, power_up.height)),
                         ..Default::default()
@@ -125,4 +140,18 @@ pub fn set_game_camera() {
         target: vec2(WORLD_W / 2.0, WORLD_H / 2.0),
         ..Default::default()
     });
+}
+
+fn get_color(game: &Game) -> Color {
+    if game.rainbow_mode_end_time > 0.0 {
+        let t = get_time() as f32;
+        Color::new(
+            (t * 2.0).sin() * 0.5 + 0.5,
+            (t * 2.0 + 2.0).sin() * 0.5 + 0.5,
+            (t * 2.0 + 4.0).sin() * 0.5 + 0.5,
+            1.0,
+        )
+    } else {
+        WHITE
+    }
 }

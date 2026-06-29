@@ -90,6 +90,16 @@ pub fn handle_block_collision(game: &mut Game) {
                                         velocity_y: WORLD_H * 0.002,
                                     });
                                 }
+                                PowerUp::RainbowMode => {
+                                    game.falling_power_ups.push(FallingPowerUp {
+                                        x: block_rect.x + block_rect.width / 2.0,
+                                        y: block_rect.y + block_rect.height / 2.0,
+                                        width: block_rect.width * 1.0,
+                                        height: block_rect.height * 2.4,
+                                        power_up,
+                                        velocity_y: WORLD_H * 0.002,
+                                    });
+                                }
                             }
                         }
 
@@ -233,10 +243,10 @@ pub fn handle_power_up_collision(game: &mut Game) {
 
         if collides {
             match power_up.power_up {
-                crate::entities::PowerUp::ExtraBall => {
+                PowerUp::ExtraBall => {
                     game.balls.push(Ball::new());
                 }
-                crate::entities::PowerUp::PaddleExpand => {
+                PowerUp::PaddleExpand => {
                     // Keep the expanded paddle inside the world.  If it is against the
                     // right edge, simply increasing its width would grow entirely
                     // off-screen and make the pickup appear to have no effect.
@@ -244,7 +254,12 @@ pub fn handle_power_up_collision(game: &mut Game) {
                     // game.player.width = (game.player.width * 1.5).min(WORLD_W);
                     // game.player.x = (center_x - game.player.width / 2.0)
                     //     .clamp(0.0, WORLD_W - game.player.width);
-                    game.player.expanded_until.push(get_time() + 30.0);
+                    game.player
+                        .expand_power_up_end_times
+                        .push(get_time() + 30.0);
+                }
+                PowerUp::RainbowMode => {
+                    game.rainbow_mode_end_time = get_time() + 30.0;
                 }
             }
         }
@@ -277,6 +292,12 @@ pub fn update_ball_previous_position(game: &mut Game) {
     for ball in game.balls.iter_mut() {
         ball.prev_x = ball.x;
         ball.prev_y = ball.y;
+    }
+}
+
+pub fn update_rainbow_mode(game: &mut Game) {
+    if get_time() > game.rainbow_mode_end_time {
+        game.rainbow_mode_end_time = 0.0;
     }
 }
 
