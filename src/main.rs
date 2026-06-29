@@ -28,15 +28,25 @@ async fn main() {
     let rainbow_mode_texture = load_texture("assets/magic-mushroom-power-up.png")
         .await
         .unwrap();
+    let fire_ball_texture = load_texture("assets/fireball-power-up.png").await.unwrap();
+    let fire_ball_effects = vec![
+        load_texture("assets/fireball-beercap-0.png").await.unwrap(),
+        load_texture("assets/fireball-beercap-1.png").await.unwrap(),
+        load_texture("assets/fireball-beercap-2.png").await.unwrap(),
+        load_texture("assets/fireball-beercap-3.png").await.unwrap(),
+        load_texture("assets/fireball-beercap-4.png").await.unwrap(),
+    ];
 
-    let textures = GameTextures::new(
-        paddle_texture,
-        block_texture,
-        ball_texture,
-        extra_ball_texture,
-        paddle_expand_texture,
-        rainbow_mode_texture,
-    );
+    let textures = GameTextures {
+        paddle: paddle_texture,
+        block: block_texture,
+        ball: ball_texture,
+        extra_ball_power_up: extra_ball_texture,
+        paddle_expand_power_up: paddle_expand_texture,
+        rainbow_mode_power_up: rainbow_mode_texture,
+        fire_ball_power_up: fire_ball_texture,
+        fire_ball_effects,
+    };
     let mut game = Game::new(textures);
 
     loop {

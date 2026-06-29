@@ -59,6 +59,7 @@ impl Paddle {
 
 #[derive(Copy, Clone)]
 pub struct Ball {
+    // physics
     pub x: f32,
     pub y: f32,
     pub prev_x: f32,
@@ -66,6 +67,7 @@ pub struct Ball {
     pub radius: f32,
     pub velocity_x: f32,
     pub velocity_y: f32,
+    pub ball_effect: BallEffect,
 }
 
 impl Ball {
@@ -83,6 +85,7 @@ impl Ball {
             radius: WORLD_W * 0.01,
             velocity_x: speed * angle.cos(),
             velocity_y: speed * angle.sin(),
+            ball_effect: BallEffect::Normal,
         }
     }
 }
@@ -105,6 +108,8 @@ impl Block {
                     Some(PowerUp::PaddleExpand)
                 } else if random_value < 30 {
                     Some(PowerUp::RainbowMode)
+                } else if random_value < 40 {
+                    Some(PowerUp::FireBall)
                 } else {
                     None
                 }
@@ -118,6 +123,7 @@ pub enum PowerUp {
     ExtraBall,
     PaddleExpand,
     RainbowMode,
+    FireBall,
 }
 
 #[derive(Clone, Copy)]
@@ -136,4 +142,40 @@ pub struct BlockCoordinates {
     pub y: f32,
     pub width: f32,
     pub height: f32,
+}
+
+#[derive(Copy, Clone)]
+pub struct Animation {
+    pub frame: usize,
+    pub frame_count: usize,
+    pub frame_time: f64,
+    pub timer: f32,
+}
+
+impl Animation {
+    pub fn new(frame_count: usize, frame_time: f64) -> Self {
+        Animation {
+            frame: 0,
+            frame_count,
+            frame_time,
+            timer: 0.0,
+        }
+    }
+
+    pub fn update(&mut self, delta_time: f32) {
+        self.timer += delta_time;
+        if self.timer >= self.frame_time as f32 {
+            self.timer = 0.0;
+            self.frame = (self.frame + 1) % self.frame_count;
+        }
+    }
+}
+
+#[derive(Copy, Clone)]
+pub enum BallEffect {
+    Normal,
+    Fire {
+        expires_at: f64,
+        animation: Animation,
+    },
 }

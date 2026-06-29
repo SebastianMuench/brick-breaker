@@ -1,6 +1,6 @@
 use crate::{
     BLOCKS_H, BLOCKS_W, PADDLE_MOVE_DELTA, WORLD_H, WORLD_W,
-    entities::{Ball, BlockCoordinates, FallingPowerUp, PowerUp},
+    entities::{self, Ball, BallEffect, BlockCoordinates, FallingPowerUp, PowerUp},
     game::Game,
     state::GameState,
 };
@@ -69,79 +69,113 @@ pub fn handle_block_collision(game: &mut Game) {
                     let block_rect: BlockCoordinates = calculate_block_rect(i, j);
 
                     if block_collides(ball, &block_rect) {
-                        block.active = false;
-                        let power_up = block.power_up;
-                        if let Some(power_up) = power_up {
-                            match power_up {
-                                PowerUp::ExtraBall => {
-                                    falling_power_ups.push(FallingPowerUp {
-                                        x: block_rect.x + block_rect.width / 2.0,
-                                        y: block_rect.y + block_rect.height / 2.0,
-                                        width: block_rect.width * 0.8,
-                                        height: block_rect.height * 1.4,
-                                        power_up,
-                                        velocity_y: WORLD_H * 0.002,
-                                    });
-                                }
-                                PowerUp::PaddleExpand => {
-                                    falling_power_ups.push(FallingPowerUp {
-                                        x: block_rect.x + block_rect.width / 2.0,
-                                        y: block_rect.y + block_rect.height / 2.0,
-                                        width: block_rect.width * 1.0,
-                                        height: block_rect.height * 2.4,
-                                        power_up,
-                                        velocity_y: WORLD_H * 0.002,
-                                    });
-                                }
-                                PowerUp::RainbowMode => {
-                                    falling_power_ups.push(FallingPowerUp {
-                                        x: block_rect.x + block_rect.width / 2.0,
-                                        y: block_rect.y + block_rect.height / 2.0,
-                                        width: block_rect.width * 1.0,
-                                        height: block_rect.height * 2.4,
-                                        power_up,
-                                        velocity_y: WORLD_H * 0.002,
-                                    });
-                                }
+                        match ball.ball_effect {
+                            BallEffect::Normal => {
+                                handle_normal_collision(falling_power_ups, ball, block, block_rect);
+                                collision_occurred = true;
+                                break;
+                            }
+                            BallEffect::Fire { .. } => {
+                                block.active = false;
+                                let power_up = block.power_up;
+                                handle_power_up(falling_power_ups, block_rect, power_up);
                             }
                         }
-
-                        // find the point on the block that is closest to the ball center
-                        let closest_x = ball.x.clamp(block_rect.x, block_rect.x + block_rect.width);
-                        let closest_y =
-                            ball.y.clamp(block_rect.y, block_rect.y + block_rect.height);
-
-                        // figure out how far the ball has pushed inside the block on both axes
-                        let overlap_x = ball.radius - (ball.x - closest_x).abs();
-                        let overlap_y = ball.radius - (ball.y - closest_y).abs();
-
-                        // we bounce on the axis with the smaller overlap because that's where the hit happened
-                        if overlap_x < overlap_y {
-                            ball.velocity_x = -ball.velocity_x;
-                            // push the ball back outside the block on the x axis so it doesn't get stuck
-                            if ball.x < closest_x {
-                                ball.x = block_rect.x - ball.radius;
-                            } else {
-                                ball.x = block_rect.x + block_rect.width + ball.radius;
-                            }
-                        } else {
-                            ball.velocity_y = -ball.velocity_y;
-                            // push the ball back outside the block on the y axis so it doesn't get stuck
-                            if ball.y < closest_y {
-                                ball.y = block_rect.y - ball.radius;
-                            } else {
-                                ball.y = block_rect.y + block_rect.height + ball.radius;
-                            }
-                        }
-
-                        collision_occurred = true;
-                        break;
                     }
                 }
             }
 
             if collision_occurred {
                 break;
+            }
+        }
+    }
+}
+
+fn handle_normal_collision(
+    falling_power_ups: &mut Vec<FallingPowerUp>,
+    ball: &mut Ball,
+    block: &mut entities::Block,
+    block_rect: BlockCoordinates,
+) {
+    block.active = false;
+    let power_up = block.power_up;
+    handle_power_up(falling_power_ups, block_rect, power_up);
+
+    // find the point on the block that is closest to the ball center
+    let closest_x = ball.x.clamp(block_rect.x, block_rect.x + block_rect.width);
+    let closest_y = ball.y.clamp(block_rect.y, block_rect.y + block_rect.height);
+
+    // figure out how far the ball has pushed inside the block on both axes
+    let overlap_x = ball.radius - (ball.x - closest_x).abs();
+    let overlap_y = ball.radius - (ball.y - closest_y).abs();
+
+    // we bounce on the axis with the smaller overlap because that's where the hit happened
+    if overlap_x < overlap_y {
+        ball.velocity_x = -ball.velocity_x;
+        // push the ball back outside the block on the x axis so it doesn't get stuck
+        if ball.x < closest_x {
+            ball.x = block_rect.x - ball.radius;
+        } else {
+            ball.x = block_rect.x + block_rect.width + ball.radius;
+        }
+    } else {
+        ball.velocity_y = -ball.velocity_y;
+        // push the ball back outside the block on the y axis so it doesn't get stuck
+        if ball.y < closest_y {
+            ball.y = block_rect.y - ball.radius;
+        } else {
+            ball.y = block_rect.y + block_rect.height + ball.radius;
+        }
+    }
+}
+
+fn handle_power_up(
+    falling_power_ups: &mut Vec<FallingPowerUp>,
+    block_rect: BlockCoordinates,
+    power_up: Option<PowerUp>,
+) {
+    if let Some(power_up) = power_up {
+        match power_up {
+            PowerUp::ExtraBall => {
+                falling_power_ups.push(FallingPowerUp {
+                    x: block_rect.x + block_rect.width / 2.0,
+                    y: block_rect.y + block_rect.height / 2.0,
+                    width: block_rect.width * 0.8,
+                    height: block_rect.height * 1.4,
+                    power_up,
+                    velocity_y: WORLD_H * 0.002,
+                });
+            }
+            PowerUp::PaddleExpand => {
+                falling_power_ups.push(FallingPowerUp {
+                    x: block_rect.x + block_rect.width / 2.0,
+                    y: block_rect.y + block_rect.height / 2.0,
+                    width: block_rect.width * 1.0,
+                    height: block_rect.height * 2.4,
+                    power_up,
+                    velocity_y: WORLD_H * 0.002,
+                });
+            }
+            PowerUp::RainbowMode => {
+                falling_power_ups.push(FallingPowerUp {
+                    x: block_rect.x + block_rect.width / 2.0,
+                    y: block_rect.y + block_rect.height / 2.0,
+                    width: block_rect.width * 1.0,
+                    height: block_rect.height * 2.4,
+                    power_up,
+                    velocity_y: WORLD_H * 0.002,
+                });
+            }
+            PowerUp::FireBall => {
+                falling_power_ups.push(FallingPowerUp {
+                    x: block_rect.x + block_rect.width / 2.0,
+                    y: block_rect.y + block_rect.height / 2.0,
+                    width: block_rect.width * 1.0,
+                    height: block_rect.height * 2.4,
+                    power_up,
+                    velocity_y: WORLD_H * 0.002,
+                });
             }
         }
     }
@@ -236,6 +270,7 @@ pub fn handle_paddle_collision(game: &mut Game) {
 }
 
 pub fn handle_power_up_collision(game: &mut Game) {
+    let fire_ball_effect_frame_count = game.textures.fire_ball_effects.len();
     let player = &mut game.entities.player;
     let balls = &mut game.entities.balls;
     let falling_power_ups = &mut game.entities.falling_power_ups;
@@ -266,6 +301,14 @@ pub fn handle_power_up_collision(game: &mut Game) {
                 }
                 PowerUp::RainbowMode => {
                     *rainbow_mode_end_time = get_time() + 30.0;
+                }
+                PowerUp::FireBall => {
+                    for ball in balls.iter_mut() {
+                        ball.ball_effect = BallEffect::Fire {
+                            expires_at: get_time() + 30.0,
+                            animation: entities::Animation::new(fire_ball_effect_frame_count, 0.1),
+                        };
+                    }
                 }
             }
         }
@@ -306,6 +349,24 @@ pub fn update_ball_previous_position(game: &mut Game) {
 pub fn update_rainbow_mode(game: &mut Game) {
     if get_time() > game.timers.rainbow_mode_end_time {
         game.timers.rainbow_mode_end_time = 0.0;
+    }
+}
+
+pub fn update_ball_effects(game: &mut Game) {
+    for ball in game.entities.balls.iter_mut() {
+        match &mut ball.ball_effect {
+            BallEffect::Normal => {}
+            BallEffect::Fire {
+                expires_at,
+                animation,
+            } => {
+                if get_time() > *expires_at {
+                    ball.ball_effect = BallEffect::Normal;
+                } else {
+                    animation.update(get_frame_time());
+                }
+            }
+        }
     }
 }
 

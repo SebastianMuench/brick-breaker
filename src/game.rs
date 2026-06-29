@@ -3,13 +3,7 @@ use crate::{
     draw::{draw_game, draw_game_over, draw_game_won, draw_pause, draw_start, set_game_camera},
     entities::{Ball, Block, FallingPowerUp, Paddle},
     state::GameState::{self, StartScreen},
-    system::{
-        check_ball_out_of_bounds, game_lost, game_won, handle_block_collision,
-        handle_paddle_collision, handle_power_up_collision, handle_site_collision,
-        handle_top_collision, increase_speed, toggle_game, update_ball_position,
-        update_ball_previous_position, update_falling_power_ups_position, update_player_position,
-        update_rainbow_mode,
-    },
+    system::*,
 };
 
 use macroquad::{
@@ -50,26 +44,8 @@ pub struct GameTextures {
     pub extra_ball_power_up: Texture2D,
     pub paddle_expand_power_up: Texture2D,
     pub rainbow_mode_power_up: Texture2D,
-}
-
-impl GameTextures {
-    pub fn new(
-        paddle: Texture2D,
-        block: Texture2D,
-        ball: Texture2D,
-        extra_ball_power_up: Texture2D,
-        paddle_expand_power_up: Texture2D,
-        rainbow_mode_power_up: Texture2D,
-    ) -> Self {
-        GameTextures {
-            paddle,
-            block,
-            ball,
-            extra_ball_power_up,
-            paddle_expand_power_up,
-            rainbow_mode_power_up,
-        }
-    }
+    pub fire_ball_power_up: Texture2D,
+    pub fire_ball_effects: Vec<Texture2D>,
 }
 
 #[derive(Clone)]
@@ -192,6 +168,7 @@ impl Game {
 
     fn update_entities(&mut self) {
         update_rainbow_mode(self);
+        update_ball_effects(self);
         update_player_position(self);
         update_falling_power_ups_position(self);
         self.entities.player.apply_size_increases();
