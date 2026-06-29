@@ -305,7 +305,7 @@ pub fn handle_power_up_collision(game: &mut Game) {
                 PowerUp::FireBall => {
                     for ball in balls.iter_mut() {
                         ball.ball_effect = BallEffect::Fire {
-                            expires_at: get_time() + 30.0,
+                            expires_at: get_time() + 5.0,
                             animation: entities::Animation::new(fire_ball_effect_frame_count, 0.1),
                         };
                     }
