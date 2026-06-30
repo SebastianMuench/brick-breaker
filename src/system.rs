@@ -1,6 +1,9 @@
 use crate::{
     BLOCKS_H, BLOCKS_W, PADDLE_MOVE_DELTA, WORLD_H, WORLD_W,
-    entities::{self, Ball, BallEffect, BlockCoordinates, FallingPowerUp, PowerUp},
+    entities::{
+        self, BEER_FOUNTAIN_DURATION_SECONDS, BEER_FOUNTAIN_SPLASH_DURATION_SECONDS, Ball,
+        BallEffect, BlockCoordinates, FallingPowerUp, PowerUp, Rect as EntityRect,
+    },
     game::Game,
     state::GameState,
 };
@@ -9,6 +12,7 @@ use macroquad::prelude::*;
 const PADDLE_ENGLISH_STRENGTH: f32 = 0.45;
 const MAX_HORIZONTAL_BOUNCE_RATIO: f32 = 0.85;
 const PADDLE_STILL_EPSILON: f32 = 0.01;
+const BEER_FOUNTAIN_PUSH_SPEED: f32 = WORLD_H * 0.003;
 
 pub fn toggle_game(game: &mut Game) {
     if is_key_pressed(KeyCode::P) {
@@ -177,6 +181,17 @@ fn handle_power_up(
                     velocity_y: WORLD_H * 0.002,
                 });
             }
+            PowerUp::BeerFountain => {
+                let power_up_size = block_rect.width * 0.8;
+                falling_power_ups.push(FallingPowerUp {
+                    x: block_rect.x + block_rect.width / 2.0 - power_up_size / 2.0,
+                    y: block_rect.y + block_rect.height / 2.0 - power_up_size / 2.0,
+                    width: power_up_size,
+                    height: power_up_size,
+                    power_up,
+                    velocity_y: WORLD_H * 0.002,
+                });
+            }
         }
     }
 }
@@ -246,7 +261,10 @@ fn calculate_paddle_bounce_velocity(
 }
 
 pub fn handle_paddle_collision(game: &mut Game) {
-    let paddle_hitbox = game.entities.player.hitbox();
+    let paddle_hitbox = game
+        .entities
+        .player
+        .active_hitbox(game.timers.beer_fountain_end_time > 0.0);
     let paddle_velocity_x = game.entities.player.velocity_x;
 
     for ball in game.entities.balls.iter_mut() {
@@ -269,13 +287,45 @@ pub fn handle_paddle_collision(game: &mut Game) {
     }
 }
 
+pub fn handle_beer_fountain_collision(game: &mut Game) {
+    if game.timers.beer_fountain_end_time <= 0.0 {
+        return;
+    }
+
+    let fountain_hitbox = game.entities.player.beer_fountain_hitbox();
+
+    for ball in game.entities.balls.iter_mut() {
+        push_ball_from_beer_fountain(ball, &fountain_hitbox);
+    }
+}
+
+fn push_ball_from_beer_fountain(ball: &mut Ball, fountain_hitbox: &EntityRect) -> bool {
+    if !ball_overlaps_rect(ball, fountain_hitbox) {
+        return false;
+    }
+
+    ball.velocity_y = ball.velocity_y.min(-BEER_FOUNTAIN_PUSH_SPEED);
+    true
+}
+
+fn ball_overlaps_rect(ball: &Ball, rect: &EntityRect) -> bool {
+    let closest_x = ball.x.clamp(rect.x, rect.x + rect.width);
+    let closest_y = ball.y.clamp(rect.y, rect.y + rect.height);
+    let distance_x = ball.x - closest_x;
+    let distance_y = ball.y - closest_y;
+
+    distance_x * distance_x + distance_y * distance_y <= ball.radius * ball.radius
+}
+
 pub fn handle_power_up_collision(game: &mut Game) {
     let fire_ball_effect_frame_count = game.textures.fire_ball_effects.len();
     let player = &mut game.entities.player;
     let balls = &mut game.entities.balls;
     let falling_power_ups = &mut game.entities.falling_power_ups;
     let rainbow_mode_end_time = &mut game.timers.rainbow_mode_end_time;
-    let paddle_hitbox = player.hitbox();
+    let beer_fountain_end_time = &mut game.timers.beer_fountain_end_time;
+    let beer_fountain_splash_end_time = &mut game.timers.beer_fountain_splash_end_time;
+    let paddle_hitbox = player.active_hitbox(*beer_fountain_end_time > 0.0);
 
     falling_power_ups.retain(|power_up| {
         //player collision
@@ -309,6 +359,12 @@ pub fn handle_power_up_collision(game: &mut Game) {
                             animation: entities::Animation::new(fire_ball_effect_frame_count, 0.1),
                         };
                     }
+                }
+                PowerUp::BeerFountain => {
+                    let now = get_time();
+
+                    *beer_fountain_end_time = now + BEER_FOUNTAIN_DURATION_SECONDS;
+                    *beer_fountain_splash_end_time = now + BEER_FOUNTAIN_SPLASH_DURATION_SECONDS;
                 }
             }
         }
@@ -352,6 +408,18 @@ pub fn update_rainbow_mode(game: &mut Game) {
     }
 }
 
+pub fn update_beer_fountain(game: &mut Game) {
+    let now = get_time();
+
+    if now > game.timers.beer_fountain_end_time {
+        game.timers.beer_fountain_end_time = 0.0;
+    }
+
+    if now > game.timers.beer_fountain_splash_end_time {
+        game.timers.beer_fountain_splash_end_time = 0.0;
+    }
+}
+
 pub fn update_ball_effects(game: &mut Game) {
     for ball in game.entities.balls.iter_mut() {
         match &mut ball.ball_effect {
@@ -390,6 +458,19 @@ mod tests {
 
     fn speed(velocity_x: f32, velocity_y: f32) -> f32 {
         velocity_x.hypot(velocity_y)
+    }
+
+    fn ball_at(x: f32, y: f32, velocity_x: f32, velocity_y: f32) -> Ball {
+        Ball {
+            x,
+            y,
+            prev_x: x,
+            prev_y: y,
+            radius: 5.0,
+            velocity_x,
+            velocity_y,
+            ball_effect: BallEffect::Normal,
+        }
     }
 
     #[test]
@@ -436,5 +517,67 @@ mod tests {
 
         assert_approx_eq(velocity_x, speed * MAX_HORIZONTAL_BOUNCE_RATIO);
         assert!(velocity_y < 0.0);
+    }
+
+    #[test]
+    fn beer_fountain_pushes_overlapping_ball_upward() {
+        let hitbox = EntityRect {
+            x: 100.0,
+            y: 100.0,
+            width: 30.0,
+            height: 80.0,
+        };
+        let mut ball = ball_at(115.0, 170.0, 0.4, 0.8);
+
+        assert!(push_ball_from_beer_fountain(&mut ball, &hitbox));
+        assert_approx_eq(ball.velocity_x, 0.4);
+        assert_approx_eq(ball.velocity_y, -BEER_FOUNTAIN_PUSH_SPEED);
+    }
+
+    #[test]
+    fn beer_fountain_ignores_non_overlapping_ball() {
+        let hitbox = EntityRect {
+            x: 100.0,
+            y: 100.0,
+            width: 30.0,
+            height: 80.0,
+        };
+        let mut ball = ball_at(180.0, 170.0, 0.4, 0.8);
+
+        assert!(!push_ball_from_beer_fountain(&mut ball, &hitbox));
+        assert_approx_eq(ball.velocity_x, 0.4);
+        assert_approx_eq(ball.velocity_y, 0.8);
+    }
+
+    #[test]
+    fn beer_fountain_does_not_slow_fast_upward_ball() {
+        let hitbox = EntityRect {
+            x: 100.0,
+            y: 100.0,
+            width: 30.0,
+            height: 80.0,
+        };
+        let mut ball = ball_at(115.0, 170.0, 0.4, -BEER_FOUNTAIN_PUSH_SPEED * 2.0);
+
+        assert!(push_ball_from_beer_fountain(&mut ball, &hitbox));
+        assert_approx_eq(ball.velocity_y, -BEER_FOUNTAIN_PUSH_SPEED * 2.0);
+    }
+
+    #[test]
+    fn beer_fountain_hitbox_is_centered_on_paddle() {
+        let paddle = entities::Paddle {
+            x: 80.0,
+            y: 450.0,
+            width: 100.0,
+            height: 25.0,
+            base_width: 100.0,
+            velocity_x: 0.0,
+            expand_power_up_end_times: Vec::new(),
+        };
+        let hitbox = paddle.beer_fountain_hitbox();
+        let paddle_center_x = paddle.x + paddle.width / 2.0;
+        let hitbox_center_x = hitbox.x + hitbox.width / 2.0;
+
+        assert_approx_eq(hitbox_center_x, paddle_center_x);
     }
 }

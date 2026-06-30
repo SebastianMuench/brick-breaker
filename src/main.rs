@@ -36,6 +36,13 @@ async fn main() {
         load_texture("assets/fireball-beercap-3.png").await.unwrap(),
         load_texture("assets/fireball-beercap-4.png").await.unwrap(),
     ];
+    let beer_fountain_sheet_texture = load_texture("assets/beer-fountain-sheet.png")
+        .await
+        .unwrap();
+    let beer_fountain_splash_texture = load_texture("assets/beer-fountain-splash.png")
+        .await
+        .unwrap();
+    let upright_beer_bottle_texture = load_texture("assets/yachter-upright.png").await.unwrap();
 
     let textures = GameTextures {
         paddle: paddle_texture,
@@ -46,6 +53,9 @@ async fn main() {
         rainbow_mode_power_up: rainbow_mode_texture,
         fire_ball_power_up: fire_ball_texture,
         fire_ball_effects,
+        beer_fountain_sheet: beer_fountain_sheet_texture,
+        beer_fountain_splash: beer_fountain_splash_texture,
+        upright_beer_bottle: upright_beer_bottle_texture,
     };
     let mut game = Game::new(textures);
 

@@ -1,5 +1,5 @@
 use crate::{
-    BLOCKS_H, BLOCKS_W, PADDLE_MOVE_DELTA, SPEED_MULTIPLYER, WORLD_W,
+    BLOCKS_H, BLOCKS_W, PADDLE_MOVE_DELTA, SPEED_MULTIPLYER,
     draw::{draw_game, draw_game_over, draw_game_won, draw_pause, draw_start, set_game_camera},
     entities::{Ball, Block, FallingPowerUp, Paddle},
     state::GameState::{self, StartScreen},
@@ -46,12 +46,17 @@ pub struct GameTextures {
     pub rainbow_mode_power_up: Texture2D,
     pub fire_ball_power_up: Texture2D,
     pub fire_ball_effects: Vec<Texture2D>,
+    pub beer_fountain_sheet: Texture2D,
+    pub beer_fountain_splash: Texture2D,
+    pub upright_beer_bottle: Texture2D,
 }
 
 #[derive(Clone)]
 pub struct GameTimers {
     pub next_speed_increase_time: f64,
     pub rainbow_mode_end_time: f64,
+    pub beer_fountain_end_time: f64,
+    pub beer_fountain_splash_end_time: f64,
 }
 
 impl GameTimers {
@@ -59,6 +64,8 @@ impl GameTimers {
         GameTimers {
             next_speed_increase_time: get_time() + 10.0,
             rainbow_mode_end_time: 0.0,
+            beer_fountain_end_time: 0.0,
+            beer_fountain_splash_end_time: 0.0,
         }
     }
 }
@@ -162,16 +169,21 @@ impl Game {
         handle_site_collision(self);
         handle_top_collision(self);
         handle_paddle_collision(self);
+        handle_beer_fountain_collision(self);
         handle_block_collision(self);
         handle_power_up_collision(self);
     }
 
     fn update_entities(&mut self) {
         update_rainbow_mode(self);
+        update_beer_fountain(self);
         update_ball_effects(self);
         update_player_position(self);
         update_falling_power_ups_position(self);
         self.entities.player.apply_size_increases();
+        self.entities
+            .player
+            .clamp_side_boundary_inside_world(self.timers.beer_fountain_end_time > 0.0);
         update_ball_previous_position(self);
         update_ball_position(self);
         check_ball_out_of_bounds(self);
@@ -179,25 +191,21 @@ impl Game {
     }
 
     fn handle_input(&mut self) {
+        let beer_fountain_active = self.timers.beer_fountain_end_time > get_time();
         let player = &mut self.entities.player;
         let previous_x = player.x;
 
         if is_key_down(KeyCode::Left) {
-            if player.x - PADDLE_MOVE_DELTA < 0.0 {
-                player.x = 0.0;
-            } else {
-                player.x -= PADDLE_MOVE_DELTA;
-            }
+            player.x -= PADDLE_MOVE_DELTA;
+            player.clamp_side_boundary_inside_world(beer_fountain_active);
         }
 
         if is_key_down(KeyCode::Right) {
-            if player.x + player.width + PADDLE_MOVE_DELTA > WORLD_W {
-                player.x = WORLD_W - player.width;
-            } else {
-                player.x += PADDLE_MOVE_DELTA;
-            }
+            player.x += PADDLE_MOVE_DELTA;
+            player.clamp_side_boundary_inside_world(beer_fountain_active);
         }
 
+        player.clamp_side_boundary_inside_world(beer_fountain_active);
         player.velocity_x = player.x - previous_x;
     }
 

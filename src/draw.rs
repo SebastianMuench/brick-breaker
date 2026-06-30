@@ -1,7 +1,7 @@
 use macroquad::{
     camera::{Camera2D, set_camera},
     color::{Color, WHITE},
-    math::{Vec2, vec2},
+    math::{Rect as TextureRect, Vec2, vec2},
     shapes::draw_rectangle,
     text::{draw_text, measure_text},
     texture::{DrawTextureParams, draw_texture_ex},
@@ -11,7 +11,7 @@ use macroquad::{
 
 use crate::{
     BLOCKS_H, BLOCKS_W, WORLD_H, WORLD_W,
-    entities::{BallEffect, PowerUp},
+    entities::{BEER_FOUNTAIN_FRAME_COUNT, BEER_FOUNTAIN_FRAME_TIME, BallEffect, PowerUp},
     game::Game,
 };
 
@@ -52,19 +52,7 @@ pub fn draw_start() {
 pub fn draw_game(game: &Game) {
     let color = get_color(game);
 
-    draw_texture_ex(
-        &game.textures.paddle,
-        game.entities.player.x,
-        game.entities.player.y,
-        color,
-        DrawTextureParams {
-            dest_size: Some(Vec2::new(
-                game.entities.player.width,
-                game.entities.player.height,
-            )),
-            ..Default::default()
-        },
-    );
+    draw_player(game, color);
 
     for ball in game.entities.balls.iter() {
         match ball.ball_effect {
@@ -170,7 +158,89 @@ pub fn draw_game(game: &Game) {
                     },
                 );
             }
+            PowerUp::BeerFountain => {
+                draw_texture_ex(
+                    &game.textures.beer_fountain_splash,
+                    power_up.x,
+                    power_up.y,
+                    color,
+                    DrawTextureParams {
+                        dest_size: Some(Vec2::new(power_up.width, power_up.height)),
+                        ..Default::default()
+                    },
+                );
+            }
         }
+    }
+}
+
+fn draw_player(game: &Game, color: Color) {
+    if game.timers.beer_fountain_end_time > 0.0 {
+        draw_beer_fountain(game, color);
+    } else {
+        draw_texture_ex(
+            &game.textures.paddle,
+            game.entities.player.x,
+            game.entities.player.y,
+            color,
+            DrawTextureParams {
+                dest_size: Some(Vec2::new(
+                    game.entities.player.width,
+                    game.entities.player.height,
+                )),
+                ..Default::default()
+            },
+        );
+    }
+}
+
+fn draw_beer_fountain(game: &Game, color: Color) {
+    let fountain = game.entities.player.beer_fountain_rect();
+    let bottle = game.entities.player.upright_beer_bottle_rect();
+    let splash = game.entities.player.beer_fountain_splash_rect();
+    let frame_width = game.textures.beer_fountain_sheet.width() / BEER_FOUNTAIN_FRAME_COUNT as f32;
+    let frame_height = game.textures.beer_fountain_sheet.height();
+    let frame = ((get_time() / BEER_FOUNTAIN_FRAME_TIME) as usize) % BEER_FOUNTAIN_FRAME_COUNT;
+
+    draw_texture_ex(
+        &game.textures.beer_fountain_sheet,
+        fountain.x,
+        fountain.y,
+        color,
+        DrawTextureParams {
+            dest_size: Some(Vec2::new(fountain.width, fountain.height)),
+            source: Some(TextureRect::new(
+                frame as f32 * frame_width,
+                0.0,
+                frame_width,
+                frame_height,
+            )),
+            ..Default::default()
+        },
+    );
+
+    draw_texture_ex(
+        &game.textures.upright_beer_bottle,
+        bottle.x,
+        bottle.y,
+        color,
+        DrawTextureParams {
+            dest_size: Some(Vec2::new(bottle.width, bottle.height)),
+            ..Default::default()
+        },
+    );
+
+    if game.timers.beer_fountain_splash_end_time > 0.0 {
+        draw_texture_ex(
+            &game.textures.beer_fountain_splash,
+            splash.x,
+            splash.y,
+            color,
+            DrawTextureParams {
+                dest_size: Some(Vec2::new(splash.width, splash.height)),
+                ..Default::default()
+            },
+        );
     }
 }
 

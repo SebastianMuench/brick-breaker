@@ -8,6 +8,24 @@ const PADDLE_VISIBLE_X: f32 = 84.0;
 const PADDLE_VISIBLE_Y: f32 = 112.0;
 const PADDLE_VISIBLE_W: f32 = 1961.0;
 const PADDLE_VISIBLE_H: f32 = 514.0;
+// assets/yachter-upright.png is assets/yachter.png rotated by -90 degrees.
+const UPRIGHT_PADDLE_VISIBLE_X: f32 = PADDLE_VISIBLE_Y;
+const UPRIGHT_PADDLE_VISIBLE_Y: f32 = PADDLE_TEXTURE_W - PADDLE_VISIBLE_X - PADDLE_VISIBLE_W;
+const UPRIGHT_PADDLE_VISIBLE_W: f32 = PADDLE_VISIBLE_H;
+const UPRIGHT_PADDLE_VISIBLE_H: f32 = PADDLE_VISIBLE_W;
+
+pub const BEER_FOUNTAIN_DURATION_SECONDS: f64 = 20.0;
+pub const BEER_FOUNTAIN_SPLASH_DURATION_SECONDS: f64 = 0.25;
+pub const BEER_FOUNTAIN_FRAME_COUNT: usize = 8;
+pub const BEER_FOUNTAIN_FRAME_TIME: f64 = 0.1;
+pub const UPRIGHT_BEER_BOTTLE_HEIGHT: f32 = WORLD_H * 0.24;
+pub const UPRIGHT_BEER_BOTTLE_WIDTH: f32 = UPRIGHT_BEER_BOTTLE_HEIGHT / 3.0;
+pub const BEER_FOUNTAIN_WIDTH: f32 = WORLD_W * 0.12;
+pub const BEER_FOUNTAIN_HEIGHT: f32 = WORLD_H * 0.36;
+pub const BEER_FOUNTAIN_HITBOX_WIDTH: f32 = WORLD_W * 0.07;
+pub const BEER_FOUNTAIN_HITBOX_HEIGHT: f32 = WORLD_H * 0.34;
+pub const BEER_FOUNTAIN_NECK_OVERLAP: f32 = WORLD_H * 0.012;
+pub const BEER_FOUNTAIN_SPLASH_SIZE: f32 = WORLD_W * 0.08;
 
 #[derive(Clone)]
 pub struct Paddle {
@@ -42,9 +60,24 @@ impl Paddle {
     }
 
     pub fn apply_size_increases(&mut self) {
-        self.expand_power_up_end_times
-            .retain(|&time| time > get_time());
+        self.apply_size_increases_at(get_time());
+    }
+
+    fn apply_size_increases_at(&mut self, now: f64) {
+        let center_x = self.center_x();
+
+        self.expand_power_up_end_times.retain(|&time| time > now);
         self.width = self.base_width * (1.0 + 0.5 * self.expand_power_up_end_times.len() as f32);
+        self.x = center_x - self.width / 2.0;
+    }
+
+    pub fn rect(&self) -> Rect {
+        Rect {
+            x: self.x,
+            y: self.y,
+            width: self.width,
+            height: self.height,
+        }
     }
 
     pub fn hitbox(&self) -> Rect {
@@ -54,6 +87,98 @@ impl Paddle {
             width: self.width * (PADDLE_VISIBLE_W / PADDLE_TEXTURE_W),
             height: self.height * (PADDLE_VISIBLE_H / PADDLE_TEXTURE_H),
         }
+    }
+
+    pub fn side_boundary_rect(&self, beer_fountain_active: bool) -> Rect {
+        if beer_fountain_active {
+            self.upright_beer_bottle_hitbox()
+        } else {
+            self.rect()
+        }
+    }
+
+    pub fn clamp_side_boundary_inside_world(&mut self, beer_fountain_active: bool) {
+        let bounds = self.side_boundary_rect(beer_fountain_active);
+
+        if bounds.x < 0.0 {
+            self.x -= bounds.x;
+        }
+
+        let bounds = self.side_boundary_rect(beer_fountain_active);
+        let overflow = bounds.x + bounds.width - WORLD_W;
+
+        if overflow > 0.0 {
+            self.x -= overflow;
+        }
+    }
+
+    pub fn active_hitbox(&self, beer_fountain_active: bool) -> Rect {
+        if beer_fountain_active {
+            self.upright_beer_bottle_hitbox()
+        } else {
+            self.hitbox()
+        }
+    }
+
+    pub fn upright_beer_bottle_rect(&self) -> Rect {
+        Rect {
+            x: self.center_x() - UPRIGHT_BEER_BOTTLE_WIDTH / 2.0,
+            y: self.bottom() - UPRIGHT_BEER_BOTTLE_HEIGHT,
+            width: UPRIGHT_BEER_BOTTLE_WIDTH,
+            height: UPRIGHT_BEER_BOTTLE_HEIGHT,
+        }
+    }
+
+    pub fn upright_beer_bottle_hitbox(&self) -> Rect {
+        let bottle = self.upright_beer_bottle_rect();
+
+        Rect {
+            x: bottle.x + bottle.width * (UPRIGHT_PADDLE_VISIBLE_X / PADDLE_TEXTURE_H),
+            y: bottle.y + bottle.height * (UPRIGHT_PADDLE_VISIBLE_Y / PADDLE_TEXTURE_W),
+            width: bottle.width * (UPRIGHT_PADDLE_VISIBLE_W / PADDLE_TEXTURE_H),
+            height: bottle.height * (UPRIGHT_PADDLE_VISIBLE_H / PADDLE_TEXTURE_W),
+        }
+    }
+
+    pub fn beer_fountain_rect(&self) -> Rect {
+        let bottle = self.upright_beer_bottle_rect();
+
+        Rect {
+            x: self.center_x() - BEER_FOUNTAIN_WIDTH / 2.0,
+            y: bottle.y - BEER_FOUNTAIN_HEIGHT + BEER_FOUNTAIN_NECK_OVERLAP,
+            width: BEER_FOUNTAIN_WIDTH,
+            height: BEER_FOUNTAIN_HEIGHT,
+        }
+    }
+
+    pub fn beer_fountain_hitbox(&self) -> Rect {
+        let fountain = self.beer_fountain_rect();
+
+        Rect {
+            x: self.center_x() - BEER_FOUNTAIN_HITBOX_WIDTH / 2.0,
+            y: fountain.y + fountain.height - BEER_FOUNTAIN_HITBOX_HEIGHT,
+            width: BEER_FOUNTAIN_HITBOX_WIDTH,
+            height: BEER_FOUNTAIN_HITBOX_HEIGHT,
+        }
+    }
+
+    pub fn beer_fountain_splash_rect(&self) -> Rect {
+        let bottle = self.upright_beer_bottle_rect();
+
+        Rect {
+            x: self.center_x() - BEER_FOUNTAIN_SPLASH_SIZE / 2.0,
+            y: bottle.y - BEER_FOUNTAIN_SPLASH_SIZE / 2.0,
+            width: BEER_FOUNTAIN_SPLASH_SIZE,
+            height: BEER_FOUNTAIN_SPLASH_SIZE,
+        }
+    }
+
+    fn center_x(&self) -> f32 {
+        self.x + self.width / 2.0
+    }
+
+    fn bottom(&self) -> f32 {
+        self.y + self.height
     }
 }
 
@@ -110,6 +235,8 @@ impl Block {
                     Some(PowerUp::RainbowMode)
                 } else if random_value < 40 {
                     Some(PowerUp::FireBall)
+                } else if random_value < 50 {
+                    Some(PowerUp::BeerFountain)
                 } else {
                     None
                 }
@@ -124,6 +251,7 @@ pub enum PowerUp {
     PaddleExpand,
     RainbowMode,
     FireBall,
+    BeerFountain,
 }
 
 #[derive(Clone, Copy)]
@@ -178,4 +306,123 @@ pub enum BallEffect {
         expires_at: f64,
         animation: Animation,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const EPSILON: f32 = 0.0001;
+
+    fn assert_approx_eq(actual: f32, expected: f32) {
+        assert!(
+            (actual - expected).abs() < EPSILON,
+            "expected {actual} to be close to {expected}",
+        );
+    }
+
+    fn assert_rect_approx_eq(actual: Rect, expected: Rect) {
+        assert_approx_eq(actual.x, expected.x);
+        assert_approx_eq(actual.y, expected.y);
+        assert_approx_eq(actual.width, expected.width);
+        assert_approx_eq(actual.height, expected.height);
+    }
+
+    fn paddle() -> Paddle {
+        Paddle {
+            x: 80.0,
+            y: 450.0,
+            width: 100.0,
+            height: 25.0,
+            base_width: 100.0,
+            velocity_x: 0.0,
+            expand_power_up_end_times: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn upright_beer_bottle_hitbox_rotates_regular_visible_bounds() {
+        let paddle = paddle();
+        let bottle = paddle.upright_beer_bottle_rect();
+        let hitbox = paddle.upright_beer_bottle_hitbox();
+
+        assert_approx_eq(
+            hitbox.x,
+            bottle.x + bottle.width * (PADDLE_VISIBLE_Y / PADDLE_TEXTURE_H),
+        );
+        assert_approx_eq(
+            hitbox.y,
+            bottle.y
+                + bottle.height
+                    * ((PADDLE_TEXTURE_W - PADDLE_VISIBLE_X - PADDLE_VISIBLE_W) / PADDLE_TEXTURE_W),
+        );
+        assert_approx_eq(
+            hitbox.width,
+            bottle.width * (PADDLE_VISIBLE_H / PADDLE_TEXTURE_H),
+        );
+        assert_approx_eq(
+            hitbox.height,
+            bottle.height * (PADDLE_VISIBLE_W / PADDLE_TEXTURE_W),
+        );
+    }
+
+    #[test]
+    fn active_hitbox_uses_upright_bottle_while_beer_fountain_is_active() {
+        let paddle = paddle();
+
+        assert_rect_approx_eq(paddle.active_hitbox(false), paddle.hitbox());
+        assert_rect_approx_eq(
+            paddle.active_hitbox(true),
+            paddle.upright_beer_bottle_hitbox(),
+        );
+    }
+
+    #[test]
+    fn size_increase_preserves_paddle_and_upright_bottle_centers() {
+        let mut paddle = paddle();
+        let center_x = paddle.center_x();
+        let upright_hitbox_center_x =
+            paddle.upright_beer_bottle_hitbox().x + paddle.upright_beer_bottle_hitbox().width / 2.0;
+
+        paddle.expand_power_up_end_times.push(10.0);
+        paddle.apply_size_increases_at(0.0);
+
+        let expanded_upright_hitbox = paddle.upright_beer_bottle_hitbox();
+
+        assert_approx_eq(paddle.center_x(), center_x);
+        assert_approx_eq(
+            expanded_upright_hitbox.x + expanded_upright_hitbox.width / 2.0,
+            upright_hitbox_center_x,
+        );
+        assert_approx_eq(paddle.width, paddle.base_width * 1.5);
+    }
+
+    #[test]
+    fn side_boundary_clamp_keeps_regular_paddle_bounds_when_inactive() {
+        let mut paddle = paddle();
+
+        paddle.x = -10.0;
+        paddle.clamp_side_boundary_inside_world(false);
+        assert_approx_eq(paddle.rect().x, 0.0);
+
+        paddle.x = WORLD_W - paddle.width + 10.0;
+        paddle.clamp_side_boundary_inside_world(false);
+        assert_approx_eq(paddle.rect().x + paddle.rect().width, WORLD_W);
+    }
+
+    #[test]
+    fn side_boundary_clamp_uses_upright_bottle_body_during_beer_fountain() {
+        let mut paddle = paddle();
+
+        paddle.x = -100.0;
+        paddle.clamp_side_boundary_inside_world(true);
+        assert_approx_eq(paddle.upright_beer_bottle_hitbox().x, 0.0);
+        assert!(paddle.rect().x < 0.0);
+
+        paddle.x = WORLD_W;
+        paddle.clamp_side_boundary_inside_world(true);
+        let hitbox = paddle.upright_beer_bottle_hitbox();
+        assert_approx_eq(hitbox.x + hitbox.width, WORLD_W);
+        assert!(paddle.rect().x > WORLD_W - paddle.rect().width);
+    }
 }
