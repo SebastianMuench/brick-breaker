@@ -39,7 +39,7 @@ async fn main() {
     let beer_fountain_sheet_texture = load_texture("assets/beer-fountain-sheet.png")
         .await
         .unwrap();
-    let beer_fountain_splash_texture = load_texture("assets/beer-fountain-splash.png")
+    let beer_fountain_splash_texture = load_texture("assets/beer-funnel-power-up.png")
         .await
         .unwrap();
     let upright_beer_bottle_texture = load_texture("assets/yachter-upright.png").await.unwrap();
