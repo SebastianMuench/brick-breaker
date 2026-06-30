@@ -8,4 +8,11 @@ As I didn't want this to be too plain I've build-in some references of my friend
 
 ## Future Plans
 
-- [ ] implement a power up that let's the beer bottle rotate and 'shoot' a stream that pushes balls up
+- [x] implement a power up that let's the beer bottle rotate and 'shoot' a stream that pushes balls up
+- [ ] rebalance power ups (either max amount or way lower drop chance)
+- [ ] more power ups
+- [ ] stylized background
+- [ ] handling the paddle scaling
+- [ ] multiple difficulties or levels
+- [ ] multi-hit bricks
+- [ ] add a menu
