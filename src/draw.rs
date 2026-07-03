@@ -11,7 +11,9 @@ use macroquad::{
 
 use crate::{
     BLOCKS_H, BLOCKS_W, WORLD_H, WORLD_W,
-    entities::{BEER_FOUNTAIN_FRAME_COUNT, BEER_FOUNTAIN_FRAME_TIME, BallEffect, PowerUp},
+    entities::{
+        BEER_FOUNTAIN_FRAME_COUNT, BEER_FOUNTAIN_FRAME_TIME, BallEffect, FallingPowerUp, PowerUp,
+    },
     game::Game,
 };
 
@@ -109,68 +111,7 @@ pub fn draw_game(game: &Game) {
 
     // falling power ups
     for power_up in game.entities.falling_power_ups.iter() {
-        match power_up.power_up {
-            PowerUp::ExtraBall => {
-                draw_texture_ex(
-                    &game.textures.extra_ball_power_up,
-                    power_up.x,
-                    power_up.y,
-                    color,
-                    DrawTextureParams {
-                        dest_size: Some(Vec2::new(power_up.width, power_up.height)),
-                        ..Default::default()
-                    },
-                );
-            }
-            PowerUp::PaddleExpand => {
-                draw_texture_ex(
-                    &game.textures.paddle_expand_power_up,
-                    power_up.x,
-                    power_up.y,
-                    color,
-                    DrawTextureParams {
-                        dest_size: Some(Vec2::new(power_up.width, power_up.height)),
-                        ..Default::default()
-                    },
-                );
-            }
-            PowerUp::RainbowMode => {
-                draw_texture_ex(
-                    &game.textures.rainbow_mode_power_up,
-                    power_up.x,
-                    power_up.y,
-                    color,
-                    DrawTextureParams {
-                        dest_size: Some(Vec2::new(power_up.width, power_up.height)),
-                        ..Default::default()
-                    },
-                );
-            }
-            PowerUp::FireBall => {
-                draw_texture_ex(
-                    &game.textures.fire_ball_power_up,
-                    power_up.x,
-                    power_up.y,
-                    color,
-                    DrawTextureParams {
-                        dest_size: Some(Vec2::new(power_up.width, power_up.height)),
-                        ..Default::default()
-                    },
-                );
-            }
-            PowerUp::BeerFountain => {
-                draw_texture_ex(
-                    &game.textures.beer_fountain_splash,
-                    power_up.x,
-                    power_up.y,
-                    color,
-                    DrawTextureParams {
-                        dest_size: Some(Vec2::new(power_up.width, power_up.height)),
-                        ..Default::default()
-                    },
-                );
-            }
-        }
+        draw_power_up(game, power_up, color);
     }
 }
 
@@ -192,6 +133,28 @@ fn draw_player(game: &Game, color: Color) {
             },
         );
     }
+}
+
+fn draw_power_up(game: &Game, power_up: &FallingPowerUp, color: Color) {
+    let texture = match power_up.power_up {
+        PowerUp::ExtraBall => &game.textures.extra_ball_power_up,
+        PowerUp::PaddleExpand => &game.textures.paddle_expand_power_up,
+        PowerUp::RainbowMode => &game.textures.rainbow_mode_power_up,
+        PowerUp::FireBall => &game.textures.fire_ball_power_up,
+        PowerUp::BeerFountain => &game.textures.beer_fountain_splash,
+        PowerUp::StickyPaddle => &game.textures.sticky_paddle_power_up,
+    };
+
+    draw_texture_ex(
+        texture,
+        power_up.x,
+        power_up.y,
+        color,
+        DrawTextureParams {
+            dest_size: Some(Vec2::new(power_up.width, power_up.height)),
+            ..Default::default()
+        },
+    );
 }
 
 fn draw_beer_fountain(game: &Game, color: Color) {

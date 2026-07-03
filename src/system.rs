@@ -2,7 +2,7 @@ use crate::{
     BLOCKS_H, BLOCKS_W, PADDLE_MOVE_DELTA, WORLD_H, WORLD_W,
     entities::{
         self, BEER_FOUNTAIN_DURATION_SECONDS, BEER_FOUNTAIN_SPLASH_DURATION_SECONDS, Ball,
-        BallEffect, BlockCoordinates, FallingPowerUp, PowerUp, Rect as EntityRect,
+        BallEffect, BlockCoordinates, FallingPowerUp, PaddleEffect, PowerUp, Rect as EntityRect,
     },
     game::Game,
     state::GameState,
@@ -32,9 +32,18 @@ pub fn increase_speed(game: &mut Game, speed_multiplier: f32) {
     if get_time() > game.timers.next_speed_increase_time {
         game.timers.next_speed_increase_time = get_time() + 10.0;
         for ball in game.entities.balls.iter_mut() {
-            ball.velocity_x *= speed_multiplier;
-            ball.velocity_y *= speed_multiplier;
+            scale_ball_speed(ball, speed_multiplier);
         }
+    }
+}
+
+fn scale_ball_speed(ball: &mut Ball, speed_multiplier: f32) {
+    if let Some(held) = ball.held_by_paddle.as_mut() {
+        held.release_velocity_x *= speed_multiplier;
+        held.release_velocity_y *= speed_multiplier;
+    } else {
+        ball.velocity_x *= speed_multiplier;
+        ball.velocity_y *= speed_multiplier;
     }
 }
 
@@ -67,6 +76,10 @@ pub fn handle_block_collision(game: &mut Game) {
     let falling_power_ups = &mut game.entities.falling_power_ups;
 
     for ball in balls.iter_mut() {
+        if ball.is_held() {
+            continue;
+        }
+
         for (j, row) in blocks.iter_mut().enumerate() {
             for (i, block) in row.iter_mut().enumerate() {
                 if block.active && !collision_occurred {
@@ -192,6 +205,16 @@ fn handle_power_up(
                     velocity_y: WORLD_H * 0.002,
                 });
             }
+            PowerUp::StickyPaddle => {
+                falling_power_ups.push(FallingPowerUp {
+                    x: block_rect.x + block_rect.width / 2.0,
+                    y: block_rect.y + block_rect.height / 2.0,
+                    width: block_rect.width * 1.0,
+                    height: block_rect.height * 2.4,
+                    power_up,
+                    velocity_y: WORLD_H * 0.002,
+                });
+            }
         }
     }
 }
@@ -216,6 +239,10 @@ pub fn block_collides(ball: &Ball, block: &BlockCoordinates) -> bool {
 
 pub fn handle_site_collision(game: &mut Game) {
     for ball in game.entities.balls.iter_mut() {
+        if ball.is_held() {
+            continue;
+        }
+
         if ball.x - ball.radius <= 0.0 {
             ball.velocity_x = ball.velocity_x.abs();
             ball.x = ball.radius;
@@ -228,6 +255,10 @@ pub fn handle_site_collision(game: &mut Game) {
 
 pub fn handle_top_collision(game: &mut Game) {
     for ball in game.entities.balls.iter_mut() {
+        if ball.is_held() {
+            continue;
+        }
+
         if ball.y - ball.radius <= 0.0 {
             ball.velocity_y = ball.velocity_y.abs();
             ball.y = ball.radius;
@@ -260,30 +291,50 @@ fn calculate_paddle_bounce_velocity(
     (new_velocity_x, new_velocity_y)
 }
 
+fn handle_ball_paddle_collision(
+    ball: &mut Ball,
+    paddle_hitbox: EntityRect,
+    paddle_velocity_x: f32,
+    sticky_active: bool,
+) -> bool {
+    if ball.is_held() {
+        return false;
+    }
+
+    if ball.y + ball.radius >= paddle_hitbox.y
+        && ball.y - ball.radius <= paddle_hitbox.y + paddle_hitbox.height
+        && ball.x >= paddle_hitbox.x
+        && ball.x <= paddle_hitbox.x + paddle_hitbox.width
+        && ball.velocity_y > 0.0
+    {
+        if sticky_active {
+            ball.hold_on_paddle(paddle_hitbox);
+        } else {
+            (ball.velocity_x, ball.velocity_y) = calculate_paddle_bounce_velocity(
+                ball.velocity_x,
+                ball.velocity_y,
+                paddle_velocity_x,
+            );
+            // push the ball back up to the visible top surface of the paddle
+            ball.y = paddle_hitbox.y - ball.radius;
+        }
+
+        return true;
+    }
+
+    false
+}
+
 pub fn handle_paddle_collision(game: &mut Game) {
     let paddle_hitbox = game
         .entities
         .player
         .active_hitbox(game.timers.beer_fountain_end_time > 0.0);
     let paddle_velocity_x = game.entities.player.velocity_x;
+    let sticky_active = game.entities.player.has_sticky_effect();
 
     for ball in game.entities.balls.iter_mut() {
-        if ball.y + ball.radius >= paddle_hitbox.y
-            && ball.y - ball.radius <= paddle_hitbox.y + paddle_hitbox.height
-            && ball.x >= paddle_hitbox.x
-            && ball.x <= paddle_hitbox.x + paddle_hitbox.width
-        {
-            // only bounce if the ball is moving down to prevent it from getting stuck inside the paddle
-            if ball.velocity_y > 0.0 {
-                (ball.velocity_x, ball.velocity_y) = calculate_paddle_bounce_velocity(
-                    ball.velocity_x,
-                    ball.velocity_y,
-                    paddle_velocity_x,
-                );
-                // push the ball back up to the visible top surface of the paddle
-                ball.y = paddle_hitbox.y - ball.radius;
-            }
-        }
+        handle_ball_paddle_collision(ball, paddle_hitbox, paddle_velocity_x, sticky_active);
     }
 }
 
@@ -295,12 +346,16 @@ pub fn handle_beer_fountain_collision(game: &mut Game) {
     let fountain_hitbox = game.entities.player.beer_fountain_hitbox();
 
     for ball in game.entities.balls.iter_mut() {
+        if ball.is_held() {
+            continue;
+        }
+
         push_ball_from_beer_fountain(ball, &fountain_hitbox);
     }
 }
 
 fn push_ball_from_beer_fountain(ball: &mut Ball, fountain_hitbox: &EntityRect) -> bool {
-    if !ball_overlaps_rect(ball, fountain_hitbox) {
+    if ball.is_held() || !ball_overlaps_rect(ball, fountain_hitbox) {
         return false;
     }
 
@@ -347,7 +402,9 @@ pub fn handle_power_up_collision(game: &mut Game) {
                     // player.width = (player.width * 1.5).min(WORLD_W);
                     // player.x = (center_x - player.width / 2.0)
                     //     .clamp(0.0, WORLD_W - player.width);
-                    player.expand_power_up_end_times.push(get_time() + 30.0);
+                    player.paddle_effects.push(PaddleEffect::Expanded {
+                        expires_at: get_time() + 30.0,
+                    });
                 }
                 PowerUp::RainbowMode => {
                     *rainbow_mode_end_time = get_time() + 30.0;
@@ -366,6 +423,11 @@ pub fn handle_power_up_collision(game: &mut Game) {
                     *beer_fountain_end_time = now + BEER_FOUNTAIN_DURATION_SECONDS;
                     *beer_fountain_splash_end_time = now + BEER_FOUNTAIN_SPLASH_DURATION_SECONDS;
                 }
+                PowerUp::StickyPaddle => {
+                    player.paddle_effects.push(PaddleEffect::Sticky {
+                        expires_at: get_time() + 30.0,
+                    });
+                }
             }
         }
 
@@ -379,14 +441,51 @@ pub fn handle_power_up_collision(game: &mut Game) {
 pub fn check_ball_out_of_bounds(game: &mut Game) {
     game.entities
         .balls
-        .retain(|ball| ball.y - ball.radius <= WORLD_H);
+        .retain(|ball| ball.is_held() || ball.y - ball.radius <= WORLD_H);
 }
 
 pub fn update_ball_position(game: &mut Game) {
     for ball in game.entities.balls.iter_mut() {
+        if ball.is_held() {
+            continue;
+        }
+
         ball.x += ball.velocity_x;
         ball.y += ball.velocity_y;
     }
+}
+
+pub fn update_held_ball_positions(game: &mut Game) {
+    let paddle_hitbox = game
+        .entities
+        .player
+        .active_hitbox(game.timers.beer_fountain_end_time > 0.0);
+
+    for ball in game.entities.balls.iter_mut() {
+        ball.update_held_position(paddle_hitbox);
+    }
+}
+
+pub fn release_sticky_balls(game: &mut Game) {
+    let paddle_velocity_x = game.entities.player.velocity_x;
+
+    for ball in game.entities.balls.iter_mut() {
+        release_sticky_ball(ball, paddle_velocity_x);
+    }
+}
+
+fn release_sticky_ball(ball: &mut Ball, paddle_velocity_x: f32) -> bool {
+    if let Some((release_velocity_x, release_velocity_y)) = ball.release_from_paddle() {
+        (ball.velocity_x, ball.velocity_y) = calculate_paddle_bounce_velocity(
+            release_velocity_x,
+            release_velocity_y,
+            paddle_velocity_x,
+        );
+
+        return true;
+    }
+
+    false
 }
 
 pub fn update_falling_power_ups_position(game: &mut Game) {
@@ -470,6 +569,7 @@ mod tests {
             velocity_x,
             velocity_y,
             ball_effect: BallEffect::Normal,
+            held_by_paddle: None,
         }
     }
 
@@ -517,6 +617,93 @@ mod tests {
 
         assert_approx_eq(velocity_x, speed * MAX_HORIZONTAL_BOUNCE_RATIO);
         assert!(velocity_y < 0.0);
+    }
+
+    #[test]
+    fn normal_paddle_collision_keeps_existing_bounce_behavior() {
+        let paddle_hitbox = EntityRect {
+            x: 100.0,
+            y: 200.0,
+            width: 50.0,
+            height: 10.0,
+        };
+        let mut ball = ball_at(120.0, 196.0, 0.2, 0.6);
+
+        assert!(handle_ball_paddle_collision(
+            &mut ball,
+            paddle_hitbox,
+            0.0,
+            false
+        ));
+
+        assert!(!ball.is_held());
+        assert_approx_eq(ball.velocity_x, 0.2);
+        assert_approx_eq(ball.velocity_y, -0.6);
+        assert_approx_eq(ball.y, paddle_hitbox.y - ball.radius);
+    }
+
+    #[test]
+    fn sticky_paddle_collision_holds_downward_ball() {
+        let paddle_hitbox = EntityRect {
+            x: 100.0,
+            y: 200.0,
+            width: 50.0,
+            height: 10.0,
+        };
+        let mut ball = ball_at(120.0, 196.0, 0.2, 0.6);
+
+        assert!(handle_ball_paddle_collision(
+            &mut ball,
+            paddle_hitbox,
+            0.0,
+            true
+        ));
+
+        let held = ball.held_by_paddle.unwrap();
+        assert_approx_eq(held.paddle_offset_x, -5.0);
+        assert_approx_eq(held.release_velocity_x, 0.2);
+        assert_approx_eq(held.release_velocity_y, 0.6);
+        assert_approx_eq(ball.velocity_x, 0.0);
+        assert_approx_eq(ball.velocity_y, 0.0);
+        assert_approx_eq(ball.y, paddle_hitbox.y - ball.radius);
+    }
+
+    #[test]
+    fn sticky_release_launches_held_ball_upward() {
+        let paddle_hitbox = EntityRect {
+            x: 100.0,
+            y: 200.0,
+            width: 50.0,
+            height: 10.0,
+        };
+        let mut ball = ball_at(120.0, 196.0, 0.2, 0.6);
+        ball.hold_on_paddle(paddle_hitbox);
+
+        assert!(release_sticky_ball(&mut ball, 0.0));
+
+        assert!(!ball.is_held());
+        assert_approx_eq(ball.velocity_x, 0.2);
+        assert_approx_eq(ball.velocity_y, -0.6);
+    }
+
+    #[test]
+    fn held_release_velocity_scales_when_speed_increases() {
+        let paddle_hitbox = EntityRect {
+            x: 100.0,
+            y: 200.0,
+            width: 50.0,
+            height: 10.0,
+        };
+        let mut ball = ball_at(120.0, 196.0, 0.2, 0.6);
+        ball.hold_on_paddle(paddle_hitbox);
+
+        scale_ball_speed(&mut ball, 1.5);
+
+        let held = ball.held_by_paddle.unwrap();
+        assert_approx_eq(ball.velocity_x, 0.0);
+        assert_approx_eq(ball.velocity_y, 0.0);
+        assert_approx_eq(held.release_velocity_x, 0.3);
+        assert_approx_eq(held.release_velocity_y, 0.9);
     }
 
     #[test]
@@ -572,7 +759,7 @@ mod tests {
             height: 25.0,
             base_width: 100.0,
             velocity_x: 0.0,
-            expand_power_up_end_times: Vec::new(),
+            paddle_effects: vec![],
         };
         let hitbox = paddle.beer_fountain_hitbox();
         let paddle_center_x = paddle.x + paddle.width / 2.0;

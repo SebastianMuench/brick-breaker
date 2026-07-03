@@ -49,6 +49,7 @@ pub struct GameTextures {
     pub beer_fountain_sheet: Texture2D,
     pub beer_fountain_splash: Texture2D,
     pub upright_beer_bottle: Texture2D,
+    pub sticky_paddle_power_up: Texture2D,
 }
 
 #[derive(Clone)]
@@ -179,11 +180,12 @@ impl Game {
         update_beer_fountain(self);
         update_ball_effects(self);
         update_player_position(self);
+        self.entities.player.update_paddle_effects(get_time());
         update_falling_power_ups_position(self);
-        self.entities.player.apply_size_increases();
         self.entities
             .player
             .clamp_side_boundary_inside_world(self.timers.beer_fountain_end_time > 0.0);
+        update_held_ball_positions(self);
         update_ball_previous_position(self);
         update_ball_position(self);
         check_ball_out_of_bounds(self);
@@ -192,21 +194,28 @@ impl Game {
 
     fn handle_input(&mut self) {
         let beer_fountain_active = self.timers.beer_fountain_end_time > get_time();
-        let player = &mut self.entities.player;
-        let previous_x = player.x;
+        let previous_x = self.entities.player.x;
 
-        if is_key_down(KeyCode::Left) {
-            player.x -= PADDLE_MOVE_DELTA;
+        {
+            let player = &mut self.entities.player;
+
+            if is_key_down(KeyCode::Left) {
+                player.x -= PADDLE_MOVE_DELTA;
+                player.clamp_side_boundary_inside_world(beer_fountain_active);
+            }
+
+            if is_key_down(KeyCode::Right) {
+                player.x += PADDLE_MOVE_DELTA;
+                player.clamp_side_boundary_inside_world(beer_fountain_active);
+            }
+
             player.clamp_side_boundary_inside_world(beer_fountain_active);
+            player.velocity_x = player.x - previous_x;
         }
 
-        if is_key_down(KeyCode::Right) {
-            player.x += PADDLE_MOVE_DELTA;
-            player.clamp_side_boundary_inside_world(beer_fountain_active);
+        if is_key_pressed(KeyCode::Space) {
+            release_sticky_balls(self);
         }
-
-        player.clamp_side_boundary_inside_world(beer_fountain_active);
-        player.velocity_x = player.x - previous_x;
     }
 
     pub fn draw_playing(&self) {

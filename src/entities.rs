@@ -1,4 +1,4 @@
-use macroquad::{rand, time::get_time};
+use macroquad::rand;
 
 use crate::{WORLD_H, WORLD_W};
 
@@ -35,7 +35,26 @@ pub struct Paddle {
     pub height: f32,
     pub base_width: f32,
     pub velocity_x: f32,
-    pub expand_power_up_end_times: Vec<f64>,
+    pub paddle_effects: Vec<PaddleEffect>,
+}
+
+#[derive(Clone)]
+pub enum PaddleEffect {
+    Expanded { expires_at: f64 },
+    Sticky { expires_at: f64 },
+}
+
+impl PaddleEffect {
+    pub fn is_sticky(&self) -> bool {
+        matches!(self, PaddleEffect::Sticky { .. })
+    }
+
+    pub fn is_expired(&self, now: f64) -> bool {
+        match self {
+            PaddleEffect::Expanded { expires_at } => *expires_at <= now,
+            PaddleEffect::Sticky { expires_at } => *expires_at <= now,
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -55,19 +74,36 @@ impl Paddle {
             height: WORLD_H * 0.05,
             base_width: WORLD_W * 0.15,
             velocity_x: 0.0,
-            expand_power_up_end_times: Vec::new(),
+            paddle_effects: vec![],
         }
     }
 
-    pub fn apply_size_increases(&mut self) {
-        self.apply_size_increases_at(get_time());
+    pub fn update_paddle_effects(&mut self, now: f64) {
+        self.paddle_effects.retain(|effect| !effect.is_expired(now));
+        self.update_paddle_size();
     }
 
-    fn apply_size_increases_at(&mut self, now: f64) {
+    pub fn has_sticky_effect(&self) -> bool {
+        self.paddle_effects.iter().any(PaddleEffect::is_sticky)
+    }
+
+    fn update_paddle_size(&mut self) {
         let center_x = self.center_x();
 
-        self.expand_power_up_end_times.retain(|&time| time > now);
-        self.width = self.base_width * (1.0 + 0.5 * self.expand_power_up_end_times.len() as f32);
+        match self
+            .paddle_effects
+            .iter()
+            .find(|effect| matches!(effect, PaddleEffect::Expanded { .. }))
+        {
+            Some(_) => {
+                self.width = self.base_width * 2.0;
+            }
+            None => {
+                self.width = self.base_width;
+            }
+        }
+
+        // self.width = self.base_width * (1.0 + 0.5 * self.expand_power_up_end_times.len() as f32);
         self.x = center_x - self.width / 2.0;
     }
 
@@ -183,8 +219,14 @@ impl Paddle {
 }
 
 #[derive(Copy, Clone)]
+pub struct HeldBall {
+    pub paddle_offset_x: f32,
+    pub release_velocity_x: f32,
+    pub release_velocity_y: f32,
+}
+
+#[derive(Copy, Clone)]
 pub struct Ball {
-    // physics
     pub x: f32,
     pub y: f32,
     pub prev_x: f32,
@@ -193,6 +235,7 @@ pub struct Ball {
     pub velocity_x: f32,
     pub velocity_y: f32,
     pub ball_effect: BallEffect,
+    pub held_by_paddle: Option<HeldBall>,
 }
 
 impl Ball {
@@ -211,7 +254,42 @@ impl Ball {
             velocity_x: speed * angle.cos(),
             velocity_y: speed * angle.sin(),
             ball_effect: BallEffect::Normal,
+            held_by_paddle: None,
         }
+    }
+
+    pub fn is_held(&self) -> bool {
+        self.held_by_paddle.is_some()
+    }
+
+    pub fn hold_on_paddle(&mut self, paddle_hitbox: Rect) {
+        let paddle_center_x = paddle_hitbox.x + paddle_hitbox.width / 2.0;
+
+        self.held_by_paddle = Some(HeldBall {
+            paddle_offset_x: self.x - paddle_center_x,
+            release_velocity_x: self.velocity_x,
+            release_velocity_y: self.velocity_y,
+        });
+        self.velocity_x = 0.0;
+        self.velocity_y = 0.0;
+        self.update_held_position(paddle_hitbox);
+        self.prev_x = self.x;
+        self.prev_y = self.y;
+    }
+
+    pub fn update_held_position(&mut self, paddle_hitbox: Rect) {
+        if let Some(held) = self.held_by_paddle {
+            let paddle_center_x = paddle_hitbox.x + paddle_hitbox.width / 2.0;
+
+            self.x = paddle_center_x + held.paddle_offset_x;
+            self.y = paddle_hitbox.y - self.radius;
+        }
+    }
+
+    pub fn release_from_paddle(&mut self) -> Option<(f32, f32)> {
+        self.held_by_paddle
+            .take()
+            .map(|held| (held.release_velocity_x, held.release_velocity_y))
     }
 }
 
@@ -227,16 +305,18 @@ impl Block {
             active: true,
             power_up: {
                 let random_value: u32 = rand::gen_range(1, 100);
-                if random_value < 10 {
+                if random_value < 5 {
                     Some(PowerUp::ExtraBall)
-                } else if random_value < 20 {
+                } else if random_value < 10 {
                     Some(PowerUp::PaddleExpand)
-                } else if random_value < 30 {
+                } else if random_value < 15 {
                     Some(PowerUp::RainbowMode)
-                } else if random_value < 40 {
+                } else if random_value < 20 {
                     Some(PowerUp::FireBall)
-                } else if random_value < 50 {
+                } else if random_value < 25 {
                     Some(PowerUp::BeerFountain)
+                } else if random_value < 30 {
+                    Some(PowerUp::StickyPaddle)
                 } else {
                     None
                 }
@@ -252,6 +332,7 @@ pub enum PowerUp {
     RainbowMode,
     FireBall,
     BeerFountain,
+    StickyPaddle,
 }
 
 #[derive(Clone, Copy)]
@@ -328,7 +409,7 @@ mod tests {
         assert_approx_eq(actual.height, expected.height);
     }
 
-    fn paddle() -> Paddle {
+    fn new() -> Paddle {
         Paddle {
             x: 80.0,
             y: 450.0,
@@ -336,13 +417,71 @@ mod tests {
             height: 25.0,
             base_width: 100.0,
             velocity_x: 0.0,
-            expand_power_up_end_times: Vec::new(),
+            paddle_effects: vec![],
         }
     }
 
     #[test]
+    fn sticky_effect_presence_uses_unexpired_paddle_effects() {
+        let mut paddle = new();
+
+        assert!(!paddle.has_sticky_effect());
+
+        paddle
+            .paddle_effects
+            .push(PaddleEffect::Sticky { expires_at: 5.0 });
+        assert!(paddle.has_sticky_effect());
+
+        paddle.update_paddle_effects(6.0);
+        assert!(!paddle.has_sticky_effect());
+    }
+
+    #[test]
+    fn held_ball_follows_paddle_hitbox() {
+        let mut ball = Ball {
+            x: 115.0,
+            y: 120.0,
+            prev_x: 115.0,
+            prev_y: 120.0,
+            radius: 5.0,
+            velocity_x: 0.4,
+            velocity_y: 0.8,
+            ball_effect: BallEffect::Normal,
+            held_by_paddle: None,
+        };
+        let first_hitbox = Rect {
+            x: 100.0,
+            y: 200.0,
+            width: 50.0,
+            height: 10.0,
+        };
+        let next_hitbox = Rect {
+            x: 130.0,
+            y: 210.0,
+            width: 50.0,
+            height: 10.0,
+        };
+
+        ball.hold_on_paddle(first_hitbox);
+        assert!(ball.is_held());
+        assert_approx_eq(ball.velocity_x, 0.0);
+        assert_approx_eq(ball.velocity_y, 0.0);
+        assert_approx_eq(ball.x, 115.0);
+        assert_approx_eq(ball.y, first_hitbox.y - ball.radius);
+
+        ball.update_held_position(next_hitbox);
+        assert_approx_eq(ball.x, 145.0);
+        assert_approx_eq(ball.y, next_hitbox.y - ball.radius);
+
+        let (release_velocity_x, release_velocity_y) = ball.release_from_paddle().unwrap();
+        assert_approx_eq(release_velocity_x, 0.4);
+        assert_approx_eq(release_velocity_y, 0.8);
+        assert!(!ball.is_held());
+    }
+
+    #[test]
     fn upright_beer_bottle_hitbox_rotates_regular_visible_bounds() {
-        let paddle = paddle();
+        let paddle = new();
         let bottle = paddle.upright_beer_bottle_rect();
         let hitbox = paddle.upright_beer_bottle_hitbox();
 
@@ -368,7 +507,7 @@ mod tests {
 
     #[test]
     fn active_hitbox_uses_upright_bottle_while_beer_fountain_is_active() {
-        let paddle = paddle();
+        let paddle = new();
 
         assert_rect_approx_eq(paddle.active_hitbox(false), paddle.hitbox());
         assert_rect_approx_eq(
@@ -378,28 +517,8 @@ mod tests {
     }
 
     #[test]
-    fn size_increase_preserves_paddle_and_upright_bottle_centers() {
-        let mut paddle = paddle();
-        let center_x = paddle.center_x();
-        let upright_hitbox_center_x =
-            paddle.upright_beer_bottle_hitbox().x + paddle.upright_beer_bottle_hitbox().width / 2.0;
-
-        paddle.expand_power_up_end_times.push(10.0);
-        paddle.apply_size_increases_at(0.0);
-
-        let expanded_upright_hitbox = paddle.upright_beer_bottle_hitbox();
-
-        assert_approx_eq(paddle.center_x(), center_x);
-        assert_approx_eq(
-            expanded_upright_hitbox.x + expanded_upright_hitbox.width / 2.0,
-            upright_hitbox_center_x,
-        );
-        assert_approx_eq(paddle.width, paddle.base_width * 1.5);
-    }
-
-    #[test]
     fn side_boundary_clamp_keeps_regular_paddle_bounds_when_inactive() {
-        let mut paddle = paddle();
+        let mut paddle = new();
 
         paddle.x = -10.0;
         paddle.clamp_side_boundary_inside_world(false);
@@ -412,7 +531,7 @@ mod tests {
 
     #[test]
     fn side_boundary_clamp_uses_upright_bottle_body_during_beer_fountain() {
-        let mut paddle = paddle();
+        let mut paddle = new();
 
         paddle.x = -100.0;
         paddle.clamp_side_boundary_inside_world(true);

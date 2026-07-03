@@ -43,6 +43,9 @@ async fn main() {
         .await
         .unwrap();
     let upright_beer_bottle_texture = load_texture("assets/yachter-upright.png").await.unwrap();
+    let sticky_paddle_power_up_texture = load_texture("assets/camel-balls-power-up.png")
+        .await
+        .unwrap();
 
     let textures = GameTextures {
         paddle: paddle_texture,
@@ -56,6 +59,7 @@ async fn main() {
         beer_fountain_sheet: beer_fountain_sheet_texture,
         beer_fountain_splash: beer_fountain_splash_texture,
         upright_beer_bottle: upright_beer_bottle_texture,
+        sticky_paddle_power_up: sticky_paddle_power_up_texture,
     };
     let mut game = Game::new(textures);
 
