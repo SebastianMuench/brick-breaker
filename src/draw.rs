@@ -12,7 +12,8 @@ use macroquad::{
 use crate::{
     BLOCKS_H, BLOCKS_W, WORLD_H, WORLD_W,
     entities::{
-        BEER_FOUNTAIN_FRAME_COUNT, BEER_FOUNTAIN_FRAME_TIME, BallEffect, FallingPowerUp, PowerUp,
+        BEER_FOUNTAIN_FRAME_COUNT, BEER_FOUNTAIN_FRAME_TIME, BallEffect,
+        CHARCOAL_BLOCK_FRAME_COUNT, CHARCOAL_BLOCK_FRAME_TIME, FallingPowerUp, PowerUp,
     },
     game::Game,
 };
@@ -94,14 +95,37 @@ pub fn draw_game(game: &Game) {
             if block.active {
                 let block_width = WORLD_W / BLOCKS_W as f32;
                 let block_height = WORLD_H / (2.0 * BLOCKS_H as f32);
+                let grill_active = game.timers.grill_end_time > 0.0;
+                let texture = if grill_active {
+                    &game.textures.charcoal_block_sheet
+                } else {
+                    &game.textures.block
+                };
+                let source = if grill_active {
+                    let frame_width = game.textures.charcoal_block_sheet.width()
+                        / CHARCOAL_BLOCK_FRAME_COUNT as f32;
+                    let frame_height = game.textures.charcoal_block_sheet.height();
+                    let frame = ((get_time() / CHARCOAL_BLOCK_FRAME_TIME) as usize + i + j)
+                        % CHARCOAL_BLOCK_FRAME_COUNT;
+
+                    Some(TextureRect::new(
+                        frame as f32 * frame_width,
+                        0.0,
+                        frame_width,
+                        frame_height,
+                    ))
+                } else {
+                    None
+                };
 
                 draw_texture_ex(
-                    &game.textures.block,
+                    texture,
                     i as f32 * block_width,
                     j as f32 * block_height,
                     color,
                     DrawTextureParams {
                         dest_size: Some(Vec2::new(block_width, block_height)),
+                        source,
                         ..Default::default()
                     },
                 );
@@ -143,6 +167,7 @@ fn draw_power_up(game: &Game, power_up: &FallingPowerUp, color: Color) {
         PowerUp::FireBall => &game.textures.fire_ball_power_up,
         PowerUp::BeerFountain => &game.textures.beer_fountain_splash,
         PowerUp::StickyPaddle => &game.textures.sticky_paddle_power_up,
+        PowerUp::Grill => &game.textures.grill_power_up,
     };
 
     draw_texture_ex(

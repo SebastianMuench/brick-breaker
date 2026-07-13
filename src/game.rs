@@ -34,6 +34,14 @@ impl GameEntities {
             falling_power_ups: Vec::new(),
         }
     }
+
+    pub fn recalculate_power_ups(&mut self, drop_chance: u32) {
+        for block_row in self.blocks.iter_mut() {
+            for block in block_row.iter_mut() {
+                block.power_up = Block::get_random_power_up(drop_chance);
+            }
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -50,6 +58,8 @@ pub struct GameTextures {
     pub beer_fountain_splash: Texture2D,
     pub upright_beer_bottle: Texture2D,
     pub sticky_paddle_power_up: Texture2D,
+    pub grill_power_up: Texture2D,
+    pub charcoal_block_sheet: Texture2D,
 }
 
 #[derive(Clone)]
@@ -58,6 +68,7 @@ pub struct GameTimers {
     pub rainbow_mode_end_time: f64,
     pub beer_fountain_end_time: f64,
     pub beer_fountain_splash_end_time: f64,
+    pub grill_end_time: f64,
 }
 
 impl GameTimers {
@@ -67,6 +78,7 @@ impl GameTimers {
             rainbow_mode_end_time: 0.0,
             beer_fountain_end_time: 0.0,
             beer_fountain_splash_end_time: 0.0,
+            grill_end_time: 0.0,
         }
     }
 }
@@ -178,6 +190,7 @@ impl Game {
     fn update_entities(&mut self) {
         update_rainbow_mode(self);
         update_beer_fountain(self);
+        update_grill(self);
         update_ball_effects(self);
         update_player_position(self);
         self.entities.player.update_paddle_effects(get_time());

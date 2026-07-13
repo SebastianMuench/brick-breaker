@@ -46,6 +46,10 @@ async fn main() {
     let sticky_paddle_power_up_texture = load_texture("assets/camel-balls-power-up.png")
         .await
         .unwrap();
+    let grill_power_up_texture = load_texture("assets/grill-power-up.png").await.unwrap();
+    let charcoal_block_sheet_texture = load_texture("assets/charcoal-block-sheet.png")
+        .await
+        .unwrap();
 
     let textures = GameTextures {
         paddle: paddle_texture,
@@ -60,6 +64,8 @@ async fn main() {
         beer_fountain_splash: beer_fountain_splash_texture,
         upright_beer_bottle: upright_beer_bottle_texture,
         sticky_paddle_power_up: sticky_paddle_power_up_texture,
+        grill_power_up: grill_power_up_texture,
+        charcoal_block_sheet: charcoal_block_sheet_texture,
     };
     let mut game = Game::new(textures);
 

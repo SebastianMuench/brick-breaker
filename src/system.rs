@@ -2,7 +2,8 @@ use crate::{
     BLOCKS_H, BLOCKS_W, PADDLE_MOVE_DELTA, WORLD_H, WORLD_W,
     entities::{
         self, BEER_FOUNTAIN_DURATION_SECONDS, BEER_FOUNTAIN_SPLASH_DURATION_SECONDS, Ball,
-        BallEffect, BlockCoordinates, FallingPowerUp, PaddleEffect, PowerUp, Rect as EntityRect,
+        BallEffect, BlockCoordinates, FallingPowerUp, GRILL_DURATION_SECONDS, PaddleEffect,
+        PowerUp, Rect as EntityRect,
     },
     game::Game,
     state::GameState,
@@ -215,6 +216,17 @@ fn handle_power_up(
                     velocity_y: WORLD_H * 0.002,
                 });
             }
+            PowerUp::Grill => {
+                let power_up_size = block_rect.width * 0.8;
+                falling_power_ups.push(FallingPowerUp {
+                    x: block_rect.x + block_rect.width / 2.0 - power_up_size / 2.0,
+                    y: block_rect.y + block_rect.height / 2.0 - power_up_size / 2.0,
+                    width: power_up_size,
+                    height: power_up_size,
+                    power_up,
+                    velocity_y: WORLD_H * 0.002,
+                });
+            }
         }
     }
 }
@@ -374,68 +386,85 @@ fn ball_overlaps_rect(ball: &Ball, rect: &EntityRect) -> bool {
 
 pub fn handle_power_up_collision(game: &mut Game) {
     let fire_ball_effect_frame_count = game.textures.fire_ball_effects.len();
-    let player = &mut game.entities.player;
-    let balls = &mut game.entities.balls;
-    let falling_power_ups = &mut game.entities.falling_power_ups;
-    let rainbow_mode_end_time = &mut game.timers.rainbow_mode_end_time;
-    let beer_fountain_end_time = &mut game.timers.beer_fountain_end_time;
-    let beer_fountain_splash_end_time = &mut game.timers.beer_fountain_splash_end_time;
-    let paddle_hitbox = player.active_hitbox(*beer_fountain_end_time > 0.0);
+    let paddle_hitbox = game
+        .entities
+        .player
+        .active_hitbox(game.timers.beer_fountain_end_time > 0.0);
+    let falling_power_ups = std::mem::take(&mut game.entities.falling_power_ups);
+    let mut remaining_power_ups = Vec::with_capacity(falling_power_ups.len());
+    let mut collected_power_ups = Vec::new();
 
-    falling_power_ups.retain(|power_up| {
-        //player collision
-        let collides = power_up.y + power_up.height >= paddle_hitbox.y
-            && power_up.y <= paddle_hitbox.y + paddle_hitbox.height
-            && power_up.x + power_up.width >= paddle_hitbox.x
-            && power_up.x <= paddle_hitbox.x + paddle_hitbox.width;
+    for power_up in falling_power_ups {
+        if power_up_collides_with_paddle(&power_up, paddle_hitbox) {
+            collected_power_ups.push(power_up.power_up);
+        } else if power_up.y <= WORLD_H {
+            remaining_power_ups.push(power_up);
+        }
+    }
 
-        if collides {
-            match power_up.power_up {
-                PowerUp::ExtraBall => {
-                    balls.push(Ball::new());
-                }
-                PowerUp::PaddleExpand => {
-                    // Keep the expanded paddle inside the world.  If it is against the
-                    // right edge, simply increasing its width would grow entirely
-                    // off-screen and make the pickup appear to have no effect.
-                    // let center_x = player.x + player.width / 2.0;
-                    // player.width = (player.width * 1.5).min(WORLD_W);
-                    // player.x = (center_x - player.width / 2.0)
-                    //     .clamp(0.0, WORLD_W - player.width);
-                    player.paddle_effects.push(PaddleEffect::Expanded {
-                        expires_at: get_time() + 30.0,
-                    });
-                }
-                PowerUp::RainbowMode => {
-                    *rainbow_mode_end_time = get_time() + 30.0;
-                }
-                PowerUp::FireBall => {
-                    for ball in balls.iter_mut() {
-                        ball.ball_effect = BallEffect::Fire {
-                            expires_at: get_time() + 5.0,
-                            animation: entities::Animation::new(fire_ball_effect_frame_count, 0.1),
-                        };
-                    }
-                }
-                PowerUp::BeerFountain => {
-                    let now = get_time();
+    game.entities.falling_power_ups = remaining_power_ups;
 
-                    *beer_fountain_end_time = now + BEER_FOUNTAIN_DURATION_SECONDS;
-                    *beer_fountain_splash_end_time = now + BEER_FOUNTAIN_SPLASH_DURATION_SECONDS;
-                }
-                PowerUp::StickyPaddle => {
-                    player.paddle_effects.push(PaddleEffect::Sticky {
-                        expires_at: get_time() + 30.0,
-                    });
-                }
+    for power_up in collected_power_ups {
+        apply_collected_power_up(game, power_up, fire_ball_effect_frame_count);
+    }
+}
+
+fn power_up_collides_with_paddle(power_up: &FallingPowerUp, paddle_hitbox: EntityRect) -> bool {
+    power_up.y + power_up.height >= paddle_hitbox.y
+        && power_up.y <= paddle_hitbox.y + paddle_hitbox.height
+        && power_up.x + power_up.width >= paddle_hitbox.x
+        && power_up.x <= paddle_hitbox.x + paddle_hitbox.width
+}
+
+fn apply_collected_power_up(
+    game: &mut Game,
+    power_up: PowerUp,
+    fire_ball_effect_frame_count: usize,
+) {
+    match power_up {
+        PowerUp::ExtraBall => {
+            game.entities.balls.push(Ball::new());
+        }
+        PowerUp::PaddleExpand => {
+            game.entities
+                .player
+                .paddle_effects
+                .push(PaddleEffect::Expanded {
+                    expires_at: get_time() + 30.0,
+                });
+        }
+        PowerUp::RainbowMode => {
+            game.timers.rainbow_mode_end_time = get_time() + 30.0;
+        }
+        PowerUp::FireBall => {
+            let now = get_time();
+
+            for ball in game.entities.balls.iter_mut() {
+                ball.ball_effect = BallEffect::Fire {
+                    expires_at: now + 5.0,
+                    animation: entities::Animation::new(fire_ball_effect_frame_count, 0.1),
+                };
             }
         }
+        PowerUp::BeerFountain => {
+            let now = get_time();
 
-        // check if the power up is out of bounds
-        let out_of_bounds = power_up.y > WORLD_H;
-
-        !collides && !out_of_bounds
-    });
+            game.timers.beer_fountain_end_time = now + BEER_FOUNTAIN_DURATION_SECONDS;
+            game.timers.beer_fountain_splash_end_time = now + BEER_FOUNTAIN_SPLASH_DURATION_SECONDS;
+        }
+        PowerUp::StickyPaddle => {
+            game.entities
+                .player
+                .paddle_effects
+                .push(PaddleEffect::Sticky {
+                    expires_at: get_time() + 30.0,
+                });
+        }
+        PowerUp::Grill => {
+            game.timers.grill_end_time = get_time() + GRILL_DURATION_SECONDS;
+            game.entities.recalculate_power_ups(10);
+        }
+    }
 }
 
 pub fn check_ball_out_of_bounds(game: &mut Game) {
@@ -516,6 +545,13 @@ pub fn update_beer_fountain(game: &mut Game) {
 
     if now > game.timers.beer_fountain_splash_end_time {
         game.timers.beer_fountain_splash_end_time = 0.0;
+    }
+}
+
+pub fn update_grill(game: &mut Game) {
+    if get_time() > game.timers.grill_end_time {
+        game.timers.grill_end_time = 0.0;
+        game.entities.recalculate_power_ups(5);
     }
 }
 

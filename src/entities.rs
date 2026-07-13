@@ -18,6 +18,9 @@ pub const BEER_FOUNTAIN_DURATION_SECONDS: f64 = 20.0;
 pub const BEER_FOUNTAIN_SPLASH_DURATION_SECONDS: f64 = 0.25;
 pub const BEER_FOUNTAIN_FRAME_COUNT: usize = 8;
 pub const BEER_FOUNTAIN_FRAME_TIME: f64 = 0.1;
+pub const GRILL_DURATION_SECONDS: f64 = 20.0;
+pub const CHARCOAL_BLOCK_FRAME_COUNT: usize = 8;
+pub const CHARCOAL_BLOCK_FRAME_TIME: f64 = 0.12;
 pub const UPRIGHT_BEER_BOTTLE_HEIGHT: f32 = WORLD_H * 0.24;
 pub const UPRIGHT_BEER_BOTTLE_WIDTH: f32 = UPRIGHT_BEER_BOTTLE_HEIGHT / 3.0;
 pub const BEER_FOUNTAIN_WIDTH: f32 = WORLD_W * 0.12;
@@ -303,24 +306,28 @@ impl Block {
     pub fn new() -> Self {
         Block {
             active: true,
-            power_up: {
-                let random_value: u32 = rand::gen_range(1, 100);
-                if random_value < 5 {
-                    Some(PowerUp::ExtraBall)
-                } else if random_value < 10 {
-                    Some(PowerUp::PaddleExpand)
-                } else if random_value < 15 {
-                    Some(PowerUp::RainbowMode)
-                } else if random_value < 20 {
-                    Some(PowerUp::FireBall)
-                } else if random_value < 25 {
-                    Some(PowerUp::BeerFountain)
-                } else if random_value < 30 {
-                    Some(PowerUp::StickyPaddle)
-                } else {
-                    None
-                }
-            },
+            power_up: Block::get_random_power_up(3),
+        }
+    }
+
+    pub fn get_random_power_up(drop_chance: u32) -> Option<PowerUp> {
+        let random_value: u32 = rand::gen_range(1, 100);
+        if random_value < drop_chance {
+            Some(PowerUp::ExtraBall)
+        } else if random_value < drop_chance * 2 {
+            Some(PowerUp::PaddleExpand)
+        } else if random_value < drop_chance * 3 {
+            Some(PowerUp::RainbowMode)
+        } else if random_value < drop_chance * 4 {
+            Some(PowerUp::FireBall)
+        } else if random_value < drop_chance * 5 {
+            Some(PowerUp::BeerFountain)
+        } else if random_value < drop_chance * 6 {
+            Some(PowerUp::StickyPaddle)
+        } else if random_value < drop_chance * 7 {
+            Some(PowerUp::Grill)
+        } else {
+            None
         }
     }
 }
@@ -333,6 +340,7 @@ pub enum PowerUp {
     FireBall,
     BeerFountain,
     StickyPaddle,
+    Grill,
 }
 
 #[derive(Clone, Copy)]
