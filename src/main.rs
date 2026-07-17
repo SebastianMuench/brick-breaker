@@ -67,6 +67,7 @@ async fn main() {
         grill_power_up: grill_power_up_texture,
         charcoal_block_sheet: charcoal_block_sheet_texture,
     };
+
     let mut game = Game::new(textures);
 
     loop {

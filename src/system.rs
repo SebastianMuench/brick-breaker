@@ -794,6 +794,7 @@ mod tests {
             width: 100.0,
             height: 25.0,
             base_width: 100.0,
+            base_height: 25.0,
             velocity_x: 0.0,
             paddle_effects: vec![],
         };

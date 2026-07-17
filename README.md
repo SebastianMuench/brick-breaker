@@ -14,10 +14,12 @@ references of my friend group.
 
 - [x] implement a power up that let's the beer bottle rotate and
       'shoot' a stream that pushes balls up
-- [ ] rebalance power ups (either max amount or way lower drop chance)
-- [ ] more power ups
+- [ ] rebalance power ups (either max amount or way lower drop chance) - this will be ongoing
 - [ ] stylized background
-- [ ] handling the paddle scaling
+- [x] handling the paddle height scaling
 - [ ] multiple difficulties or levels
 - [ ] multi-hit bricks
 - [ ] add a menu
+- [ ] more power ups
+  - [ ] bell
+  - [ ] fliesentisch (wichtig)

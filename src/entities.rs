@@ -37,6 +37,7 @@ pub struct Paddle {
     pub width: f32,
     pub height: f32,
     pub base_width: f32,
+    pub base_height: f32,
     pub velocity_x: f32,
     pub paddle_effects: Vec<PaddleEffect>,
 }
@@ -76,6 +77,7 @@ impl Paddle {
             width: WORLD_W * 0.15,
             height: WORLD_H * 0.05,
             base_width: WORLD_W * 0.15,
+            base_height: WORLD_H * 0.05,
             velocity_x: 0.0,
             paddle_effects: vec![],
         }
@@ -100,9 +102,11 @@ impl Paddle {
         {
             Some(_) => {
                 self.width = self.base_width * 2.0;
+                self.height = self.base_height * 1.5;
             }
             None => {
                 self.width = self.base_width;
+                self.height = self.base_height;
             }
         }
 
@@ -424,6 +428,7 @@ mod tests {
             width: 100.0,
             height: 25.0,
             base_width: 100.0,
+            base_height: 25.0,
             velocity_x: 0.0,
             paddle_effects: vec![],
         }
